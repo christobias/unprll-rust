@@ -1,0 +1,9 @@
+[package]
+name = "cryptonote_config"
+version = "1.0.0"
+edition = "2018"
+
+[dependencies]
+
+[lib]
+path = "lib.rs"

@@ -1,0 +1,10 @@
+[package]
+name = "cryptonote_basic"
+version = "1.0.0"
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+log = "0.4"
