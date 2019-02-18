@@ -1,0 +1,12 @@
+[package]
+name = "unprlld"
+version = "1.0.0"
+authors = ["Christopher Tobias <ctobias@gmx.com>"]
+edition = "2018"
+
+[dependencies]
+bin_common = { path = "../common" }
+clap = { version = "2.32", features = ["yaml"] }
+cryptonote_config = { path = "../../cryptonote_config" }
+cryptonote_core = { path = "../../cryptonote_core" }
+log = "0.4"

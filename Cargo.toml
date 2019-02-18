@@ -1,15 +1,11 @@
-[package]
-name = "unprll"
-description = "Rust rewrite of Unprll"
-version = "1.0.0"
-authors = ["Christopher Tobias <ctobias@gmx.com>"]
-edition = "2018"
-readme = "README.md"
-license = "BSD-3-Clause"
-
-[dependencies]
-log = "0.4"
-clap = { version = "2.32", features = ["yaml"] }
-bin_common = { path = "src/bin/common" }
-cryptonote_core = { path = "src/cryptonote_core" }
-cryptonote_config = { path = "src/cryptonote_config" }
+[workspace]
+members = [
+  "bin/common",
+  "bin/unprlld",
+  "blockchain_db",
+  "common",
+  "crypto",
+  "cryptonote_basic",
+  "cryptonote_config",
+  "cryptonote_core"
+]
