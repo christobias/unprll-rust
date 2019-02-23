@@ -1,13 +1,15 @@
 use std::fmt;
 
-#[derive(PartialEq)]
+use sha3::{Digest, Keccak256Full};
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct Hash256 {
-    pub data: [u8; 32]
+    data: [u8; 32]
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Hash8 {
-    pub data: [u8; 8]
+    data: [u8; 8]
 }
 
 impl Hash256 {
@@ -26,6 +28,12 @@ impl Hash256 {
         hash.data = array_ref!(data, 0, 32).clone();
         Ok(hash)
     }
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+    pub fn copy_from_slice(&mut self, data: &[u8]) {
+        self.data.copy_from_slice(data);
+    }
 }
 
 impl Hash8 {
@@ -43,11 +51,17 @@ impl Hash8 {
         hash.data = array_ref!(data, 0, 8).clone();
         Ok(hash)
     }
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+    pub fn copy_from_slice(&mut self, data: &[u8]) {
+        self.data.copy_from_slice(data);
+    }
 }
 
-macro_rules! impl_Debug {
+macro_rules! impl_Display {
     (for $($t:ty),+) => {
-        $(impl fmt::Debug for $t {
+        $(impl fmt::Display for $t {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "<{}>", hex::encode(self.data))
             }
@@ -55,7 +69,13 @@ macro_rules! impl_Debug {
     }
 }
 
-impl_Debug!(for Hash256, Hash8);
+impl_Display!(for Hash256, Hash8);
+
+pub fn cn_fast_hash(data: &[u8]) -> Hash256 {
+    let mut hash = Hash256::null_hash();
+    hash.data.copy_from_slice(&Keccak256Full::digest(data)[..32]);
+    hash
+}
 
 #[cfg(test)]
 mod tests {

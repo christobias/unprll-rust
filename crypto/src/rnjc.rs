@@ -42,7 +42,7 @@ fn e2i(a: &[u8], count: usize) -> usize {
 
 fn apply_hash(data: &[u8], n: u8) -> Hash256 {
     let mut hash = Hash256::null_hash();
-    hash.data.copy_from_slice(&(match n {
+    hash.copy_from_slice(&(match n {
         0 => Blake256::digest(data),
         1 => Groestl256::digest(data),
         2 => Jh256::digest(data),
@@ -125,7 +125,7 @@ fn rnjc_recursive(data: &[u8], recursion_depth: u32) -> Hash256 {
             },
             2 => {
                 let tmp = apply_hash(&c, a[0] & 3);
-                c.copy_from_slice(&tmp.data[..16]);
+                c.copy_from_slice(&tmp.data()[..16]);
             },
             3 => {
                 // CAST256 Decrypt
@@ -152,9 +152,9 @@ fn rnjc_recursive(data: &[u8], recursion_depth: u32) -> Hash256 {
             c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]);
             let tmp_hash: Hash256 = rnjc_recursive(&a, recursion_depth - 1);
             if i % 2 == 0 {
-                c.copy_from_slice(&tmp_hash.data[..CAST256_BLOCK_SIZE]);
+                c.copy_from_slice(&tmp_hash.data()[..CAST256_BLOCK_SIZE]);
             } else {
-                c.copy_from_slice(&tmp_hash.data[CAST256_BLOCK_SIZE..]);
+                c.copy_from_slice(&tmp_hash.data()[CAST256_BLOCK_SIZE..]);
             }
             xor_blocks(&mut b, &mut c);
             swap_blocks(&mut b, &mut c);
