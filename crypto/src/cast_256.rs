@@ -2,10 +2,12 @@ pub type Cast256Block = [u32; 4];
 pub type Cast256Key = [u32; 8];
 pub type Cast256KeySchedule = [u32; 96];
 
+#[inline(always)]
 fn byte(n: u32, shift: u8) -> u8 {
     (n >> (8 * shift)) as u8
 }
 
+#[inline(always)]
 fn bswap(x: u32) -> u32 {
     ((x.rotate_left(8) & 0x00ff00ff) | (x.rotate_right(8) & 0xff00ff00))
 }
@@ -193,6 +195,7 @@ const S_BOX: [[u32; 256]; 4] = [
     ]
 ];
 
+#[inline(always)]
 fn f1(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     let t: u32 = km.wrapping_add(k[x]).rotate_left(kr);
     let mut u: u32;
@@ -203,6 +206,7 @@ fn f1(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     k[y] ^= u;
 }
 
+#[inline(always)]
 fn f2(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     let t: u32 = (km ^ k[x]).rotate_left(kr);
     let mut u: u32;
@@ -213,6 +217,7 @@ fn f2(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     k[y] ^= u;
 }
 
+#[inline(always)]
 fn f3(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     let t: u32 = km.wrapping_sub(k[x]).rotate_left(kr);
     let mut u: u32;
@@ -223,6 +228,7 @@ fn f3(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
     k[y] ^= u;
 }
 
+#[inline(always)]
 fn f_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
     let mut copy: Cast256Key = [0; 8];
     copy[..4].copy_from_slice(&x[..]);
@@ -233,6 +239,7 @@ fn f_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
     x[..].copy_from_slice(&copy[..4]);
 }
 
+#[inline(always)]
 fn i_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
     let mut copy: Cast256Key = [0; 8];
     copy[..4].copy_from_slice(&x[..]);
@@ -243,6 +250,7 @@ fn i_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
     x[..].copy_from_slice(&copy[..4]);
 }
 
+#[inline(always)]
 fn k_rnd(k: &mut Cast256Key, tr: Cast256Key, tm: Cast256Key) {
     f1(k, 6, 7, tr[0], tm[0]);
     f2(k, 5, 6, tr[1], tm[1]);

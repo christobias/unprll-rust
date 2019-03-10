@@ -21,12 +21,14 @@ const INIT_SIZE_BYTE: usize = INIT_SIZE_BLK * CAST256_BLOCK_SIZE;
 
 type SlowHashState = [u8; 200];
 
+#[inline(always)]
 fn xor_blocks(a: &mut [u8], b: &[u8]) {
     for i in 0..CAST256_BLOCK_SIZE {
         a[i] ^= b[i];
     }
 }
 
+#[inline(always)]
 fn swap_blocks(a: &mut [u8], b: &mut [u8]) {
     // Very helpfully, blocks are 128 bits wide, and all we need is a u128
     let mut a0: u128 = byteorder::LittleEndian::read_u128(a);
@@ -36,10 +38,12 @@ fn swap_blocks(a: &mut [u8], b: &mut [u8]) {
     byteorder::LittleEndian::write_u128(b, b0);
 }
 
+#[inline(always)]
 fn e2i(a: &[u8], count: usize) -> usize {
     (byteorder::LittleEndian::read_u64(a) as usize / CAST256_BLOCK_SIZE) & (count - 1)
 }
 
+#[inline(always)]
 fn apply_hash(data: &[u8], n: u8) -> Hash256 {
     let mut hash = Hash256::null_hash();
     hash.copy_from_slice(&(match n {
@@ -194,6 +198,7 @@ fn rnjc_recursive(data: &[u8], recursion_depth: u32) -> Hash256 {
     apply_hash(&hash_state, n)
 }
 
+#[inline(always)]
 pub fn rnjc(data: &[u8]) -> Hash256 {
     rnjc_recursive(data, RECURSION_DEPTH)
 }
