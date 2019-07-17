@@ -5,6 +5,8 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+common = { path = "../../common" }
 log = "0.4"
 chrono = "0.4"
 fern = { version = "0.5", features = ["colored"] }
+blockchain_db = { path = "../../blockchain_db" }

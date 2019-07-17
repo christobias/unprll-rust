@@ -1,35 +1,37 @@
-#[macro_use] extern crate clap;
 #[macro_use] extern crate log;
 
-extern crate bin_common as common;
+use std::sync::RwLock;
 
-use clap::App;
-use common::config::Config;
+use futures::future::Future;
+use structopt::StructOpt;
+use tokio::runtime::Runtime;
 
-
-fn load_config() -> Config {
-    let cli_yaml = load_yaml!("../resources/unprlld.yml");
-    let matches = App::from_yaml(cli_yaml).get_matches();
-
-    Config {
-        log_level: matches.value_of("log-level").unwrap().parse::<u8>().unwrap(),
-        log_file: String::from(matches.value_of("log-file").unwrap())
-    }
-}
+use common::Config;
+use cryptonote_core::CryptonoteCore;
+use p2p::P2P;
 
 fn main() {
     // Command Line Arguments
-    let config = load_config();
+    let config = Config::from_args();
 
     // Logging
-    common::logger::init(config).expect("Failed to initialise logger");
+    bin_common::logger::init(&config).expect("Failed to initialise logger");
 
     // Main
-    run();
+    run(config).expect("Failed to run daemon!");
+    info!("Exiting");
 }
 
-fn run() {
-    info!("{}", format_args!("Unprll {} - {}", cryptonote_config::VERSION, cryptonote_config::RELEASE_NAME));
+fn run(config: Config) -> Result<(), std::io::Error> {
+    info!("{}", format!("Unprll {} - {}", cryptonote_config::VERSION, cryptonote_config::RELEASE_NAME));
+    let mut runtime = Runtime::new().unwrap();
 
-    // cryptonote_core::init();
+    // Cryptonote Core Hub
+    let core = RwLock::new(CryptonoteCore::new(&config));
+
+    let p2p = P2P::new(&config, core);
+    p2p.init_server(&mut runtime)?;
+
+    runtime.shutdown_on_idle().wait().unwrap();
+    Ok(())
 }

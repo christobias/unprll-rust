@@ -2,10 +2,12 @@
 members = [
   "bin/common",
   "bin/unprlld",
+  "blockchain",
   "blockchain_db",
   "common",
+  "config",
+  "core",
   "crypto",
-  "cryptonote_basic",
-  "cryptonote_config",
-  "cryptonote_core"
+  "p2p",
+  "rpc"
 ]

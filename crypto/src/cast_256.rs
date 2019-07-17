@@ -229,7 +229,7 @@ fn f3(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
 }
 
 #[inline(always)]
-fn f_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
+fn f_rnd(x: &mut [u32; 4], l_key: &Cast256KeySchedule, n: u32) {
     let mut copy: Cast256Key = [0; 8];
     copy[..4].copy_from_slice(&x[..]);
     f1(&mut copy, 2, 3, l_key[n as usize],       l_key[(n + 4) as usize]);
@@ -240,7 +240,7 @@ fn f_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
 }
 
 #[inline(always)]
-fn i_rnd(x: &mut [u32; 4], l_key: Cast256KeySchedule, n: u32) {
+fn i_rnd(x: &mut [u32; 4], l_key: &Cast256KeySchedule, n: u32) {
     let mut copy: Cast256Key = [0; 8];
     copy[..4].copy_from_slice(&x[..]);
     f1(&mut copy, 3, 0, l_key[(n + 3) as usize], l_key[(n + 7) as usize]);
@@ -308,7 +308,7 @@ pub fn get_key_schedule(key: Cast256Key) -> Cast256KeySchedule {
     l_key
 }
 
-pub fn encrypt(in_blk: &[u32], key_schedule: Cast256KeySchedule) -> Cast256Block {
+pub fn encrypt(in_blk: &[u32], key_schedule: &Cast256KeySchedule) -> Cast256Block {
     let mut blk: Cast256Block = [0; 4];
 
     &blk.copy_from_slice(&in_blk[..]);
@@ -337,7 +337,7 @@ pub fn encrypt(in_blk: &[u32], key_schedule: Cast256KeySchedule) -> Cast256Block
     blk
 }
 
-pub fn decrypt(in_blk: &[u32], key_schedule: Cast256KeySchedule) -> Cast256Block {
+pub fn decrypt(in_blk: &[u32], key_schedule: &Cast256KeySchedule) -> Cast256Block {
     let mut blk: Cast256Block = [0; 4];
 
     &blk.copy_from_slice(&in_blk[..]);
@@ -374,15 +374,15 @@ mod tests {
     fn it_works() {
         let data: Cast256Block = [1; 4];
         let key: Cast256KeySchedule = get_key_schedule([5; 8]);
-        assert_eq!(decrypt(&encrypt(&data, key), key), data);
+        assert_eq!(decrypt(&encrypt(&data, &key), &key), data);
     }
 
     #[test]
     fn handles_invalid_keys() {
         let data: Cast256Block = [1; 4];
         let key: Cast256KeySchedule = get_key_schedule([5; 8]);
-        let cipher: Cast256Block = encrypt(&data, key);
+        let cipher: Cast256Block = encrypt(&data, &key);
         let key: Cast256KeySchedule = get_key_schedule([5, 5, 5, 5, 5, 5, 5, 6]);
-        assert_ne!(decrypt(&cipher, key), data);
+        assert_ne!(decrypt(&cipher, &key), data);
     }
 }

@@ -1,11 +1,10 @@
 [package]
-name = "blockchain_db"
+name = "blockchain"
 version = "1.0.0"
 authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+blockchain_db = { path = "../blockchain_db" }
 common = { path = "../common" }
 crypto = { path = "../crypto" }
-hex = "0.3"
-lmdb = "0.8"

@@ -1,7 +1,7 @@
-use crate::config::Config;
+use common::Config;
 use fern::colors::Color;
 
-pub fn init(config: Config) -> Result<(), fern::InitError> {
+pub fn init(config: &Config) -> Result<(), fern::InitError> {
     let colors = fern::colors::ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)

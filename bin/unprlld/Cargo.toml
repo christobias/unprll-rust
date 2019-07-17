@@ -6,7 +6,12 @@ edition = "2018"
 
 [dependencies]
 bin_common = { path = "../common" }
-clap = { version = "2.32", features = ["yaml"] }
-cryptonote_config = { path = "../../cryptonote_config" }
-cryptonote_core = { path = "../../cryptonote_core" }
+common = { path = "../../common" }
+cryptonote_core = { path = "../../core" }
+cryptonote_config = { path = "../../config" }
+futures = "0.1"
 log = "0.4"
+p2p = { path = "../../p2p" }
+rustyline = "5.0"
+structopt = "0.2"
+tokio = "0.1"

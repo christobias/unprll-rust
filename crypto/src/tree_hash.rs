@@ -1,4 +1,6 @@
-use crate::hash::{self, Hash256};
+use digest::Digest;
+
+use crate::hash::{Hash256, CNFastHash};
 
 fn tree_hash_cnt(count: usize) -> usize {
     assert!(count >= 3);
@@ -17,17 +19,17 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
         1 => hashes[0].clone(),
         2 => {
             let mut buf: [u8; 64] = [0; 64];
-            buf[..32].copy_from_slice(&hashes[0].data());
-            buf[32..].copy_from_slice(&hashes[1].data());
-            hash::cn_fast_hash(&buf)
+            buf[..32].copy_from_slice(&hashes[0]);
+            buf[32..].copy_from_slice(&hashes[1]);
+            CNFastHash::digest(&buf)
         },
         _ => {
             let mut cnt = tree_hash_cnt(hashes.len());
             let mut buf: Vec<u8> = Vec::with_capacity(cnt * 32);
 
             for i in 0..(2 * cnt - hashes.len()) {
-                for val in hashes[i].data() {
-                    buf.push(*val);
+                for val in hashes[i] {
+                    buf.push(val);
                 }
             }
 
@@ -38,10 +40,9 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
             let mut i: usize = 2 * cnt - hashes.len();
             for j in (2 * cnt - hashes.len())..cnt {
                 let mut tmp: [u8; 64] = [0; 64];
-                tmp[..32].copy_from_slice(&hashes[i    ].data());
-                tmp[32..].copy_from_slice(&hashes[i + 1].data());
-                let tmp = hash::cn_fast_hash(&tmp);
-                &buf[(j * 32)..((j + 1) * 32)].copy_from_slice(tmp.data());
+                tmp[..32].copy_from_slice(&hashes[i    ]);
+                tmp[32..].copy_from_slice(&hashes[i + 1]);
+                &buf[(j * 32)..((j + 1) * 32)].copy_from_slice(&CNFastHash::digest(&tmp));
                 i += 2;
             }
             assert!(i == hashes.len());
@@ -50,13 +51,13 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
                 cnt >>= 1;
                 let mut i = 0;
                 for j in (0..(cnt * 32)).step_by(32) {
-                    let tmp = hash::cn_fast_hash(&buf[i..(i + 64)]);
-                    &buf[j..(j + 32)].copy_from_slice(tmp.data());
+                    let t = &CNFastHash::digest(&buf[i..(i + 64)]);
+                    &buf[j..(j + 32)].copy_from_slice(t);
                     i += 64;
                 }
             }
 
-            hash::cn_fast_hash(&buf[..64])
+            CNFastHash::digest(&buf[..64])
         }
     }
 }
@@ -100,15 +101,13 @@ mod tests {
                 "42e7f4058ca80d513c140837dd661acde3fb914779079baccfe188cbce275aed4b515094bb49ab9a825bcc2ac13f84b14a9defeb1b62fc68124b088272a3562696d62ccdfb5d896b2d2b410a2a79f9b1e7849feebc17617ba12a08d4e80affe970ff2fb79917ac13708f79be215bb6484d298b2fe22b4818536e74894db5e0350e1505ca2681da7b7d7171e3d10c89348cab160ff5b2e739d3591443d2af60db5eb36c50a2dfdb79b8ab83b0792161ac4756d9b831f1863188e10c81af5077d0fdb123f66e51670f03a203ff2287dea6827dcd5afd4904736ec4fe9f3b52f7e2bed7beaa1543bd8bfbfff6a8ae8bf1791dc34efa92c6342532fa33a3b72b6c9f",
                 "090a95612ed9df6eeb854ae320355889a302498b4f5164a79d8e384a3a0d9748"
             )
-        ].iter().map(|x| {
-            let buf = hex::decode(x.0).unwrap();
+        ].iter().map(|(data, hash)| {
+            let buf = hex::decode(data).unwrap();
             let mut vec = Vec::default();
             for i in (0..buf.len()).step_by(32) {
-                let mut hash = Hash256::null_hash();
-                hash.copy_from_slice(&buf[i..(i + 32)]);
-                vec.push(hash);
+                vec.push(*Hash256::from_slice(&buf[i..i+32]));
             }
-            (vec, Hash256::from(x.1).unwrap())
+            (vec, *Hash256::from_slice(&hex::decode(hash).unwrap()))
         }).collect();
 
         let child = std::thread::Builder::new()
