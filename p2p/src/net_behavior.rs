@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use libp2p::PeerId;
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic, TopicBuilder};
@@ -16,7 +16,7 @@ pub struct CryptonoteNetworkBehavior<TSubstream: AsyncRead + AsyncWrite> {
 
     /// Cryptonote Core to interact with the blockchain, transaction pool and other components
     #[behaviour(ignore)]
-    core: RwLock<CryptonoteCore>,
+    core: Arc<RwLock<CryptonoteCore>>,
 
     /// Topics
     #[behaviour(ignore)]
@@ -24,7 +24,7 @@ pub struct CryptonoteNetworkBehavior<TSubstream: AsyncRead + AsyncWrite> {
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> CryptonoteNetworkBehavior<TSubstream> {
-    pub fn new(local_peer_id: PeerId, core: RwLock<CryptonoteCore>) -> Self {
+    pub fn new(local_peer_id: PeerId, core: Arc<RwLock<CryptonoteCore>>) -> Self {
         let mut behaviour = CryptonoteNetworkBehavior {
             floodsub: Floodsub::new(local_peer_id),
             core,

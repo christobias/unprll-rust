@@ -1,6 +1,6 @@
 #[macro_use] extern crate log;
 
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use futures::future::Future;
 use structopt::StructOpt;
@@ -8,7 +8,6 @@ use tokio::runtime::Runtime;
 
 use common::Config;
 use cryptonote_core::CryptonoteCore;
-use p2p::P2P;
 
 fn main() {
     // Command Line Arguments
@@ -27,10 +26,9 @@ fn run(config: Config) -> Result<(), std::io::Error> {
     let mut runtime = Runtime::new().unwrap();
 
     // Cryptonote Core Hub
-    let core = RwLock::new(CryptonoteCore::new(&config));
+    let core = Arc::new(RwLock::new(CryptonoteCore::new(&config)));
 
-    let p2p = P2P::new(&config, core);
-    p2p.init_server(&mut runtime)?;
+    p2p::init(&config, &mut runtime, core.clone())?;
 
     runtime.shutdown_on_idle().wait().unwrap();
     Ok(())
