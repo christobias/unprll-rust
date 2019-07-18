@@ -1,6 +1,3 @@
-extern crate common;
-extern crate crypto;
-
 use crypto::Hash256;
 use common::{Block, Transaction};
 

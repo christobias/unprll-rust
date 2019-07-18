@@ -1,5 +1,3 @@
-extern crate structopt;
-
 use crypto::Hash256;
 use crypto::{PublicKey};
 

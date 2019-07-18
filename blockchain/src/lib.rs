@@ -1,7 +1,3 @@
-extern crate blockchain_db;
-extern crate common;
-extern crate crypto;
-
 use crypto::{PublicKey, KeyImage};
 use common::{Address, Config};
 use blockchain_db::{BlockchainDB, Error};
@@ -9,7 +5,7 @@ use common::Block;
 use crypto::Hash256;
 
 pub struct Blockchain {
-    blockchain_db: Box<dyn BlockchainDB + Send>
+    blockchain_db: Box<dyn BlockchainDB + Sync + Send>
 }
 
 impl Blockchain {
