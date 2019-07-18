@@ -12,6 +12,7 @@ cryptonote_config = { path = "../../config" }
 futures = "0.1"
 log = "0.4"
 p2p = { path = "../../p2p" }
+rpc = { path = "../../rpc" }
 rustyline = "5.0"
 structopt = "0.2"
 tokio = "0.1"

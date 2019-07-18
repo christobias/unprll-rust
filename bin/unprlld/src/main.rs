@@ -22,13 +22,14 @@ fn main() {
 }
 
 fn run(config: Config) -> Result<(), std::io::Error> {
-    info!("{}", format!("Unprll {} - {}", cryptonote_config::VERSION, cryptonote_config::RELEASE_NAME));
-    let mut runtime = Runtime::new().unwrap();
+    info!("Unprll {}", format!("{} - {}", cryptonote_config::VERSION, cryptonote_config::RELEASE_NAME));
+    let mut runtime = Runtime::new().expect("Failed to create runtime!");
 
     // Cryptonote Core Hub
     let core = Arc::new(RwLock::new(CryptonoteCore::new(&config)));
 
     p2p::init(&config, &mut runtime, core.clone())?;
+    rpc::init(&config, &mut runtime, core);
 
     runtime.shutdown_on_idle().wait().unwrap();
     Ok(())

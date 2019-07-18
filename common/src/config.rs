@@ -16,5 +16,9 @@ pub struct Config {
 
     // P2P
     #[structopt(long, default_value = "21149")]
-    pub p2p_bind_port: u16
+    pub p2p_bind_port: u16,
+
+    // RPC
+    #[structopt(long, default_value = "21150")]
+    pub rpc_bind_port: u16
 }
