@@ -14,7 +14,7 @@ fn main() {
     let config = Config::from_args();
 
     // Logging
-    bin_common::logger::init(&config).expect("Failed to initialise logger");
+    bin_common::logger::init(&config, "unprlld").expect("Failed to initialise logger");
 
     // Main
     run(config).expect("Failed to run daemon!");

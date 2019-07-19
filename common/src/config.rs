@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -7,8 +9,8 @@ pub struct Config {
     #[structopt(long, default_value = "1")]
     pub log_level: u8,
 
-    #[structopt(long, default_value = "$HOME/.unprll/unprll.log")]
-    pub log_file: String,
+    #[structopt(long)]
+    pub data_directory: Option<PathBuf>,
 
     // Blockchain DB
     #[structopt(long, default_value = "memory")]

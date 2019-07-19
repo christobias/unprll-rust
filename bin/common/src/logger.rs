@@ -1,7 +1,7 @@
 use common::Config;
 use fern::colors::Color;
 
-pub fn init(config: &Config) -> Result<(), fern::InitError> {
+pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
     let colors = fern::colors::ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)
@@ -17,6 +17,21 @@ pub fn init(config: &Config) -> Result<(), fern::InitError> {
         _ => panic!("Invalid log level")
     };
 
+    let mut log_file_path = if let Some(custom_data_directory) = &config.data_directory {
+        custom_data_directory.to_path_buf()
+    } else {
+        directories::ProjectDirs::from("cash", "Unprll Project", "Unprll").expect("Failed to get project user directory").data_dir().to_path_buf()
+    };
+
+    std::fs::create_dir_all(&log_file_path).unwrap_or_else(|err| {
+        if err.kind() != std::io::ErrorKind::AlreadyExists {
+            panic!("Unexpected error when creating log directory {}", err);
+        }
+    });
+
+    log_file_path.push(binary_name);
+    log_file_path.set_extension("log");
+
     fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
@@ -30,7 +45,9 @@ pub fn init(config: &Config) -> Result<(), fern::InitError> {
         })
         .level(log_level)
         .chain(std::io::stdout())
-        // .chain(fern::log_file(config.log_file)?)
+        .chain(fern::log_file(&log_file_path)?)
         .apply()?;
+
+    info!("Logging events to {}", log_file_path.to_str().unwrap());
     Ok(())
 }
