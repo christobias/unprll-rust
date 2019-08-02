@@ -1,13 +1,15 @@
+#[macro_use] extern crate log;
+
 use crypto::Hash256;
 use crypto::{PublicKey};
 
 mod block;
-// mod checkpoints;
+mod checkpoints;
 mod config;
 mod transaction;
 
 pub use block::Block;
-// pub use checkpoints::Checkpoints;
+pub use checkpoints::Checkpoints;
 pub use config::Config;
 pub use transaction::{Transaction,TransactionPrefix,TXIn,TXOut,TXOutTarget};
 

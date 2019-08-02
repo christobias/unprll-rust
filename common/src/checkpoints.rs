@@ -32,7 +32,7 @@ impl Checkpoints {
         Ok(())
     }
     pub fn in_checkpoint_zone(&self, height: u64) -> bool {
-        !self.checkpoints.len() == 0 && height <= *self.checkpoints.iter().last().unwrap().0
+        self.checkpoints.len() > 0 && height <= *self.checkpoints.iter().last().unwrap().0
     }
     pub fn check_block(&self, height: &u64, hash: &Hash256) -> Result<bool, ()> {
         if !self.checkpoints.contains_key(height) {
@@ -55,6 +55,6 @@ mod tests {
         let mut c = Checkpoints::new();
         assert!(!c.in_checkpoint_zone(1));
         c.add_checkpoint(100, Hash256::try_from("1111111111111111111111111111111111111111111111111111111111111111").unwrap()).unwrap();
-        // assert!(c.in_checkpoint_zone(1));
+        assert!(c.in_checkpoint_zone(1));
     }
 }
