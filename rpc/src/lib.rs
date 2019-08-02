@@ -4,43 +4,61 @@ use std::sync::{Arc, RwLock};
 
 use futures::future::Future;
 use hyper::{
-    Body,
-    Method,
-    Request,
-    Response,
-    service::{
-        make_service_fn,
-        service_fn
-    },
     Server
+};
+use jsonrpc_core::IoHandler;
+use jsonrpc_derive::rpc;
+use jsonrpc_http_server::{
+    ServerBuilder,
+    ServerHandler
 };
 use tokio::{
     runtime::Runtime
 };
 
 use common::Config;
+use crypto::Hash256;
 use cryptonote_core::CryptonoteCore;
+
+mod api_definitions;
+use api_definitions::*;
 
 pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) {
     let addr = format!("127.0.0.1:{}", config.rpc_bind_port).parse().unwrap();
 
-    // Hook up the router to the hyper server
-    let server = Server::bind(&addr).serve(make_service_fn(move |_| {
-        let core = core.clone();
-        service_fn(move |req| {
-            Ok::<_, hyper::Error>(router(req, core.clone()))
-        })
-    })).map_err(|_| {});
+    let mut io = IoHandler::new();
+    let rpc_server = RPCServer {
+        core
+    };
+    io.extend_with(rpc_server.to_delegate());
+
+    let builder = Arc::from(ServerBuilder::new(io));
+
+    // Hook up the JSONRPC I/O Handler to the hyper server
+    let server = Server::bind(&addr).serve(move || -> Result<ServerHandler> {
+        Ok(builder.get_handler())
+    }).map_err(|_| {});
 
     runtime.spawn(server);
+
     info!("RPC server listening on {}", addr);
 }
 
-fn router(req: Request<Body>, core: Arc<RwLock<CryptonoteCore>>) -> Response<Body> {
-    let mut response = Response::builder();
-    let response = match (req.method(), req.uri().path()) {
-        (&Method::GET, "/") => response.body(Body::from("Hello, world!")),
-        _ => response.status(404).body(Body::from("Endpoint not found"))
-    };
-    response.unwrap()
+use jsonrpc_core::Result;
+
+#[rpc]
+pub trait RPC {
+    #[rpc(name = "get_stats")]
+    fn get_stats(&self) -> Result<Stats>;
+}
+
+pub struct RPCServer {
+    core: Arc<RwLock<CryptonoteCore>>
+}
+
+impl RPC for RPCServer {
+    fn get_stats(&self) -> Result<Stats> {
+        let core = self.core.read().map_err(|_| jsonrpc_core::types::Error::internal_error())?;
+        Ok(Stats {})
+    }
 }

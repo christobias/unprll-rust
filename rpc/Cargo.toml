@@ -9,5 +9,10 @@ common = { path = "../common" }
 cryptonote_core = { path = "../core" }
 futures = "0.1"
 hyper = "0.12"
+jsonrpc-core = { git = "https://github.com/christobias/jsonrpc" }
+jsonrpc-core-client = { git = "https://github.com/christobias/jsonrpc" }
+jsonrpc-derive = { git = "https://github.com/christobias/jsonrpc" }
+jsonrpc-http-server = { git = "https://github.com/christobias/jsonrpc" }
 log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
 tokio = "0.1"
