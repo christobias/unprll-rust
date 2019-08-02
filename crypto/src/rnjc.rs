@@ -23,9 +23,10 @@ type SlowHashState = [u8; 200];
 
 #[inline(always)]
 fn xor_blocks(a: &mut [u8], b: &[u8]) {
-    for i in 0..CAST256_BLOCK_SIZE {
-        a[i] ^= b[i];
-    }
+    let mut a0: u128 = byteorder::LittleEndian::read_u128(a);
+    let b0: u128 = byteorder::LittleEndian::read_u128(b);
+    a0 ^= b0;
+    byteorder::LittleEndian::write_u128(a, a0);
 }
 
 #[inline(always)]
@@ -142,9 +143,9 @@ impl RNJC {
                     byteorder::LittleEndian::read_u32_into(&c[..], &mut buf[..4]);
                     byteorder::LittleEndian::write_u32_into(&cast_256::decrypt(&mut buf[..4], &cast256_key), &mut c[..]);
                 },
-                _ => panic!("This must never happen!")
+                _ => unreachable!()
             }
-            xor_blocks(&mut b, &mut c);
+            xor_blocks(&mut b, &c);
             swap_blocks(&mut b, &mut c);
             long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&c);
             assert_eq!(j, e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE));
@@ -163,7 +164,7 @@ impl RNJC {
                 } else {
                     c.copy_from_slice(&tmp_hash[CAST256_BLOCK_SIZE..]);
                 }
-                xor_blocks(&mut b, &mut c);
+                xor_blocks(&mut b, &c);
                 swap_blocks(&mut b, &mut c);
                 long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&c);
                 assert_eq!(j, e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE));
@@ -183,7 +184,7 @@ impl RNJC {
         for i in 0..(MEMORY / INIT_SIZE_BYTE) {
             for j in 0..INIT_SIZE_BLK {
                 byteorder::LittleEndian::write_u32_into(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &mut b);
-                xor_blocks(&mut b, &mut long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)]);
+                xor_blocks(&mut b, &long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)]);
                 byteorder::LittleEndian::read_u32_into(&b, &mut text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]);
 
                 let res = &cast_256::encrypt(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &cast256_key);
