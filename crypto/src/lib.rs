@@ -12,7 +12,7 @@ mod tree_hash;
 
 pub use digest::Digest;
 
-pub use hash::{Hash256,Hash8,CNFastHash};
+pub use hash::{Hash256,Hash256Data,CNFastHash};
 pub use keys::{SecretKey,PublicKey,KeyPair,KeyImage};
 pub use rnjc::RNJC;
 pub use signature::Signature;

@@ -7,8 +7,8 @@ use sha3::{Digest, Keccak256Full};
 use keccak;
 use skein_hash::Skein512;
 
-use crate::cast_256::{self,Cast256Key};
-use crate::hash::Hash256;
+use crate::cast_256::{self, Cast256Key};
+use crate::hash::Hash256Data;
 
 const MEMORY: usize = 1 << 20;
 const ITER: u32 = 1024;
@@ -44,7 +44,7 @@ fn e2i(a: &[u8], count: usize) -> usize {
 }
 
 #[inline(always)]
-fn apply_hash(data: &[u8], n: u8) -> digest::generic_array::GenericArray<u8, digest::generic_array::typenum::U32> {
+fn apply_hash(data: &[u8], n: u8) -> Hash256Data {
     match n {
         0 => Blake256::digest(data),
         1 => Groestl256::digest(data),
@@ -59,7 +59,7 @@ pub struct RNJC {
 }
 
 impl RNJC {
-    fn rnjc_recursive(data: &[u8], recursion_depth: u32) -> Hash256 {
+    fn rnjc_recursive(data: &[u8], recursion_depth: u32) -> Hash256Data {
         // Scratchpad
         let mut long_state: [u8; MEMORY] = [0; MEMORY];
         // Hash state
@@ -202,7 +202,7 @@ impl RNJC {
     }
 
     #[inline(always)]
-    fn rnjc(data: &[u8]) -> Hash256 {
+    fn rnjc(data: &[u8]) -> Hash256Data {
         RNJC::rnjc_recursive(data, RECURSION_DEPTH)
     }
 }
@@ -220,10 +220,10 @@ impl Digest for RNJC {
     fn chain<B: AsRef<[u8]>>(self, _data: B) -> Self {
         unimplemented!()
     }
-    fn result(self) -> Hash256 {
+    fn result(self) -> Hash256Data {
         RNJC::rnjc(&self.data_buffer)
     }
-    fn result_reset(&mut self) -> Hash256 {
+    fn result_reset(&mut self) -> Hash256Data {
         let h = RNJC::rnjc(&self.data_buffer);
         self.reset();
         h
@@ -232,7 +232,7 @@ impl Digest for RNJC {
         self.data_buffer.clear();
         self.data_buffer.shrink_to_fit();
     }
-    fn digest(data: &[u8]) -> Hash256 {
+    fn digest(data: &[u8]) -> Hash256Data {
         RNJC::rnjc(data)
     }
     fn output_size() -> usize {

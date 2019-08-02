@@ -23,6 +23,6 @@ pub struct Block {
 
 impl GetHash for Block {
     fn get_hash(&self) -> Hash256 {
-        CNFastHash::digest(&bincode::serialize(self).unwrap())
+        Hash256::from(CNFastHash::digest(&bincode::serialize(self).unwrap()))
     }
 }

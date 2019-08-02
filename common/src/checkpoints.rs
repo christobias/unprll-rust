@@ -20,7 +20,7 @@ impl Checkpoints {
     }
     pub fn for_network(nettype: &str) -> Checkpoints {
         let mut c = Checkpoints::new();
-        c.add_checkpoint(0,     Hash256::from(&hex::decode("7d491759c7534ca5a8be62ec7fa34dc939659f5afd4b4f1da2c671a84773cedc").unwrap())).unwrap();
+        c.add_checkpoint(0,     Hash256::try_from("0000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
         c
     }
     pub fn add_checkpoint(&mut self, height: u64, hash: Hash256) -> Result<(), ()> {

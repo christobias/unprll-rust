@@ -19,18 +19,16 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
         1 => hashes[0].clone(),
         2 => {
             let mut buf: [u8; 64] = [0; 64];
-            buf[..32].copy_from_slice(&hashes[0]);
-            buf[32..].copy_from_slice(&hashes[1]);
-            CNFastHash::digest(&buf)
+            buf[..32].copy_from_slice(&hashes[0].data());
+            buf[32..].copy_from_slice(&hashes[1].data());
+            Hash256::from(CNFastHash::digest(&buf))
         },
         _ => {
             let mut cnt = tree_hash_cnt(hashes.len());
             let mut buf: Vec<u8> = Vec::with_capacity(cnt * 32);
 
             for i in 0..(2 * cnt - hashes.len()) {
-                for val in hashes[i] {
-                    buf.push(val);
-                }
+                buf.extend_from_slice(hashes[i].data());
             }
 
             for _i in (2 * cnt - hashes.len())..(cnt * 32) {
@@ -40,8 +38,8 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
             let mut i: usize = 2 * cnt - hashes.len();
             for j in (2 * cnt - hashes.len())..cnt {
                 let mut tmp: [u8; 64] = [0; 64];
-                tmp[..32].copy_from_slice(&hashes[i    ]);
-                tmp[32..].copy_from_slice(&hashes[i + 1]);
+                tmp[..32].copy_from_slice(&hashes[i    ].data());
+                tmp[32..].copy_from_slice(&hashes[i + 1].data());
                 &buf[(j * 32)..((j + 1) * 32)].copy_from_slice(&CNFastHash::digest(&tmp));
                 i += 2;
             }
@@ -57,7 +55,7 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
                 }
             }
 
-            CNFastHash::digest(&buf[..64])
+            Hash256::from(CNFastHash::digest(&buf[..64]))
         }
     }
 }

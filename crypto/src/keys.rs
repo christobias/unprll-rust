@@ -36,7 +36,7 @@ impl From<Scalar> for KeyPair {
 impl From<Hash256> for KeyPair {
     fn from(secret_key: Hash256) -> Self {
         let mut scalar: [u8; 32] = [0; 32];
-        scalar.copy_from_slice(&secret_key);
+        scalar.copy_from_slice(&secret_key.data());
         let secret_key = Scalar::from_bytes_mod_order(scalar);
 
         Self::from(secret_key)
@@ -45,12 +45,13 @@ impl From<Hash256> for KeyPair {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use super::*;
 
     #[test]
     fn it_works() {
         // Unprll donation wallet viewkey
-        let kp = KeyPair::from(*Hash256::from_slice(&hex::decode("cae2b02f3a317b0ef61e694d899060f8434aef556bfe60239846533b52ab4608").unwrap()));
+        let kp = KeyPair::from(Hash256::try_from("cae2b02f3a317b0ef61e694d899060f8434aef556bfe60239846533b52ab4608").unwrap());
         assert_eq!(hex::encode(kp.public_key.as_bytes()), "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0");
     }
 }

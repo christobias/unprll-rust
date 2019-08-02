@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use digest::Digest;
 
-use crypto::{CNFastHash, Hash256, KeyImage, PublicKey, Signature};
+use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
 
 use crate::GetHash;
 
@@ -48,7 +48,7 @@ pub struct Transaction {
 
 impl GetHash for Transaction {
     fn get_hash(&self) -> Hash256 {
-        let mut hashes: Vec<Hash256> = Vec::with_capacity(3);
+        let mut hashes: Vec<Hash256Data> = Vec::with_capacity(3);
         // Prefix hash
         hashes[0] = CNFastHash::digest(&bincode::serialize(&self.prefix).unwrap());
         // Signatures hash
@@ -56,6 +56,6 @@ impl GetHash for Transaction {
         // TODO: RingCT Signatures hash
         // hashes[2] = CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap());
 
-        CNFastHash::digest(&bincode::serialize(&hashes).unwrap())
+        Hash256::from(CNFastHash::digest(&bincode::serialize(&hashes).unwrap()))
     }
 }
