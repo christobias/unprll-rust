@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use blockchain::Blockchain;
 use common::Config;
 
@@ -13,5 +11,11 @@ impl CryptonoteCore {
             blockchain: Blockchain::new(config).expect("Failed to initialize Blockchain")
         };
         core
+    }
+    pub fn get_blockchain(&self) -> &Blockchain {
+        &self.blockchain
+    }
+    pub fn get_blockchain_mut(&mut self) -> &mut Blockchain {
+        &mut self.blockchain
     }
 }
