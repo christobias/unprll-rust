@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use crypto::{CNFastHash, Digest, Hash256, PublicKey};
 use crate::{GetHash, Transaction};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
     pub major_version: u8,
     pub minor_version: u8,
@@ -14,7 +14,7 @@ pub struct BlockHeader {
     pub hash_checkpoints: Vec<Hash256>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Block {
     pub header: BlockHeader,
     pub miner_tx: Transaction,
