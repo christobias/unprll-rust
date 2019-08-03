@@ -4,9 +4,11 @@ use crypto::Hash256;
 use common::{Block, Transaction};
 
 mod error;
+mod lmdb;
 mod mem;
 
 pub use error::Result;
+pub use lmdb::BlockchainLMDB;
 pub use mem::BlockchainMemDB;
 
 pub trait BlockchainDB {

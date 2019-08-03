@@ -9,4 +9,4 @@ common = { path = "../common" }
 crypto = { path = "../crypto" }
 failure = "0.1"
 hex = "0.3"
-lmdb = "0.8"
+rkv = "0.9"

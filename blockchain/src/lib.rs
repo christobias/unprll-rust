@@ -13,6 +13,7 @@ impl Blockchain {
         Ok(Blockchain {
             blockchain_db: match config.db_type.as_ref() {
                 "memory" => Box::new(blockchain_db::BlockchainMemDB::new()),
+                "lmdb" => Box::new(blockchain_db::BlockchainLMDB::new(&Box::from(std::path::Path::new("")))?),
                 _ => panic!("Unknown DB type!")
             }
         })
