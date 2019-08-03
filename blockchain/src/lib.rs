@@ -1,6 +1,6 @@
 use crypto::{PublicKey, KeyImage};
 use common::{Address, Config};
-use blockchain_db::{BlockchainDB, Error};
+use blockchain_db::{BlockchainDB, Result};
 use common::Block;
 use crypto::Hash256;
 
@@ -9,43 +9,43 @@ pub struct Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(config: &Config) -> Result<Self, Error> {
+    pub fn new(config: &Config) -> Result<Self> {
         Ok(Blockchain {
-            blockchain_db: Box::new(match config.db_type.as_ref() {
-                "memory" => blockchain_db::BlockchainMemDB::new(),
+            blockchain_db: match config.db_type.as_ref() {
+                "memory" => Box::new(blockchain_db::BlockchainMemDB::new()),
                 _ => panic!("Unknown DB type!")
-            })
+            }
         })
     }
 
     // Blocks
-    pub fn get_blocks(start: u64, count: u64) -> Result<Vec<Block>, ()> {
+    pub fn get_blocks(&self, start: u64, count: u64) -> Result<Vec<Block>> {
+        let mut vec = Vec::new();
+        for i in start..(start+count) {
+            vec.push(self.blockchain_db.get_block_by_height(i)?);
+        }
+        Ok(vec)
+    }
+
+    pub fn get_alternative_blocks() -> Result<Vec<Block>> {
         unimplemented!()
     }
 
-    pub fn get_alternative_blocks() -> Result<Vec<Block>, ()> {
+    pub fn get_block(&self, id: &Hash256) -> Result<Block> {
+        self.blockchain_db.get_block_by_hash(id)
+    }
+
+    pub fn create_block_template(_miner_address: Address) -> Block {
         unimplemented!()
     }
 
-    pub fn get_block(id: Hash256) -> Result<Block, ()> {
-        unimplemented!()
-    }
-
-    pub fn get_block_id(height: u64) -> Result<Hash256, ()> {
-        unimplemented!()
-    }
-
-    pub fn create_block_template(miner_address: Address) -> Block {
-        unimplemented!()
-    }
-
-    pub fn add_new_block(block: Block) -> Result<(), ()> {
-        unimplemented!()
+    pub fn add_new_block(&mut self, block: Block) -> Result<()> {
+        self.blockchain_db.add_block(block, 0, 0, 0, Vec::new())
     }
 
     // Transactions
-    pub fn have_tx(id: Hash256) -> bool {
-        unimplemented!()
+    pub fn have_tx(&self, id: &Hash256) -> bool {
+        self.blockchain_db.get_transaction(id).is_ok()
     }
 
     pub fn is_keyimage_spent(key_image: KeyImage) -> bool {
@@ -82,7 +82,7 @@ impl Blockchain {
         unimplemented!()
     }
 
-    pub fn find_blockchain_supplement(short_history: Vec<Hash256>) -> Result<Vec<Hash256>, ()> {
+    pub fn find_blockchain_supplement(short_history: Vec<Hash256>) -> Result<Vec<Hash256>> {
         unimplemented!()
     }
 
