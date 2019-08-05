@@ -17,7 +17,6 @@ use tokio::{
 };
 
 use common::Config;
-use crypto::Hash256;
 use cryptonote_core::CryptonoteCore;
 
 mod api_definitions;
