@@ -3,8 +3,6 @@
 
 mod net_behavior;
 
-use std::sync::{Arc, RwLock};
-
 use libp2p::PeerId;
 use libp2p::Swarm;
 use libp2p::identity::Keypair;
@@ -17,7 +15,7 @@ use cryptonote_core::CryptonoteCore;
 
 use net_behavior::CryptonoteNetworkBehavior;
 
-pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) -> Result<(), std::io::Error> {
+pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) -> Result<(), std::io::Error> {
     // Create a random PeerId
     let local_key = Keypair::generate_ed25519();
     let peer_id = PeerId::from(local_key.public());

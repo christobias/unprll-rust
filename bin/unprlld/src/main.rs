@@ -1,7 +1,5 @@
 #[macro_use] extern crate log;
 
-use std::sync::{Arc, RwLock};
-
 use futures::future::Future;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
@@ -26,7 +24,7 @@ fn run(config: Config) -> Result<(), std::io::Error> {
     let mut runtime = Runtime::new().expect("Failed to create runtime!");
 
     // Cryptonote Core Hub
-    let core = Arc::new(RwLock::new(CryptonoteCore::new(&config)));
+    let core = CryptonoteCore::new(&config);
 
     p2p::init(&config, &mut runtime, core.clone())?;
     rpc::init(&config, &mut runtime, core);

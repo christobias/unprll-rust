@@ -1,6 +1,6 @@
 #[macro_use] extern crate log;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use futures::future::Future;
 use hyper::{
@@ -22,7 +22,7 @@ use cryptonote_core::CryptonoteCore;
 mod api_definitions;
 use api_definitions::*;
 
-pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) {
+pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) {
     let addr = format!("127.0.0.1:{}", config.rpc_bind_port).parse().unwrap();
 
     let mut io = IoHandler::new();
@@ -52,12 +52,17 @@ pub trait RPC {
 }
 
 pub struct RPCServer {
-    core: Arc<RwLock<CryptonoteCore>>
+    core: CryptonoteCore
 }
 
 impl RPC for RPCServer {
     fn get_stats(&self) -> Result<Stats> {
-        let core = self.core.read().map_err(|_| jsonrpc_core::types::Error::internal_error())?;
-        Ok(Stats {})
+        Ok(Stats {
+            height: self.core.blockchain().read().unwrap().get_tail().0,
+            target_height: 99999,
+            difficulty: 0,
+            net_type: "main".to_string(),
+            tx_pool_count: 1
+        })
     }
 }
