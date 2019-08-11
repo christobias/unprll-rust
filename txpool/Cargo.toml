@@ -1,10 +1,11 @@
 [package]
-name = "cryptonote_core"
-version = "1.0.0"
+name = "txpool"
+version = "0.1.0"
 authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
 blockchain = { path = "../blockchain" }
 common = { path = "../common" }
-txpool = { path = "../txpool" }
+crypto = { path = "../crypto" }
+failure = "0.1"
