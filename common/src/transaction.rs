@@ -1,4 +1,7 @@
-use serde::{Serialize, Deserialize};
+use serde::{
+    Serialize,
+    Deserialize
+};
 use digest::Digest;
 
 use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
@@ -47,12 +50,23 @@ pub struct Transaction {
 }
 
 impl GetHash for Transaction {
+    fn get_hash_blob(&self) -> Vec<u8> {
+        let mut vec = Vec::with_capacity(std::mem::size_of_val(&self));
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix).unwrap());
+        if !self.signatures.is_empty() {
+            vec.extend_from_slice(&bincode_epee::serialize(&self.signatures).unwrap());
+        }
+        vec
+    }
     fn get_hash(&self) -> Hash256 {
+        if self.prefix.version == 1 {
+            return Hash256::from(CNFastHash::digest(&self.get_hash_blob()));
+        }
         let mut hashes: Vec<Hash256Data> = Vec::with_capacity(3);
         // Prefix hash
-        hashes[0] = CNFastHash::digest(&bincode::serialize(&self.prefix).unwrap());
+        hashes.push(CNFastHash::digest(&bincode::serialize(&self.prefix).unwrap()));
         // Signatures hash
-        hashes[1] = CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap());
+        hashes.push(CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap()));
         // TODO: RingCT Signatures hash
         // hashes[2] = CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap());
 
