@@ -21,11 +21,10 @@ impl CryptonoteCore {
     pub fn new(config: &Config) -> Self {
         let blockchain = Arc::from(RwLock::from(Blockchain::new(config).expect("Failed to initialize Blockchain")));
         let txpool     = Arc::from(RwLock::from(TXPool::new(blockchain.clone())));
-        let core = CryptonoteCore {
+        CryptonoteCore {
             blockchain,
             txpool
-        };
-        core
+        }
     }
     pub fn blockchain(&self) -> Arc<RwLock<Blockchain>> {
         self.blockchain.clone()

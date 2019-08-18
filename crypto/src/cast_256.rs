@@ -9,12 +9,14 @@ fn byte(n: u32, shift: u8) -> u8 {
 
 #[inline(always)]
 fn bswap(x: u32) -> u32 {
-    ((x.rotate_left(8) & 0x00ff00ff) | (x.rotate_right(8) & 0xff00ff00))
+    ((x.rotate_left(8) & 0x00ff_00ff) | (x.rotate_right(8) & 0xff00_ff00))
 }
 
+// Reasonable because this is part of the CAST-256 standard
+#[allow(clippy::unreadable_literal)]
 const S_BOX: [[u32; 256]; 4] = [
     [
-        0x30fb40d4, 0x9fa0ff0b, 0x6beccd2f, 0x3f258c7a, 0x1e213f2f, 0x9C004dd3,
+        0x30fb40d4, 0x9fa0ff0b, 0x6beccd2f, 0x3f258c7a, 0x1e213f2f, 0x9c004dd3,
         0x6003e540, 0xcf9fc949, 0xbfd4af27, 0x88bbbdb5, 0xe2034090, 0x98d09675,
         0x6e63a0e0, 0x15c361d2, 0xc2e7661d, 0x22d4ff8e, 0x28683b6f, 0xc07fd059,
         0xff2379c8, 0x775f50e2, 0x43c340d3, 0xdf2f8656, 0x887ca41a, 0xa2d2bd2d,
@@ -24,7 +26,7 @@ const S_BOX: [[u32; 256]; 4] = [
         0x6ff7f0ed, 0x5a097a1f, 0x827b68d0, 0x90ecf52e, 0x22b0c054, 0xbc8e5935,
         0x4b6d2f7f, 0x50bb64a2, 0xd2664910, 0xbee5812d, 0xb7332290, 0xe93b159f,
         0xb48ee411, 0x4bff345d, 0xfd45c240, 0xad31973f, 0xc4f6d02e, 0x55fc8165,
-        0xd5b1caad, 0xa1ac2dae, 0xa2d4b76d, 0xc19b0C50, 0x882240f2, 0x0c6e4f38,
+        0xd5b1caad, 0xa1ac2dae, 0xa2d4b76d, 0xc19b0c50, 0x882240f2, 0x0c6e4f38,
         0xa4e4bfd7, 0x4f5ba272, 0x564c1d2f, 0xc59c5319, 0xb949e354, 0xb04669fe,
         0xb1b6ab8a, 0xc71358dd, 0x6385c545, 0x110f935d, 0x57538ad5, 0x6a390493,
         0xe63d37e0, 0x2a54f6b3, 0x3a787d5f, 0x6276a0b5, 0x19a6fcdf, 0x7a42206a,
@@ -32,7 +34,7 @@ const S_BOX: [[u32; 256]; 4] = [
         0x84c7cb8c, 0x2ad75a0f, 0x874a1427, 0xa2d1936b, 0x2ad286af, 0xaa56d291,
         0xd7894360, 0x425c750d, 0x93b39e26, 0x187184c9, 0x6c00b32d, 0x73e2bb14,
         0xa0bebc3c, 0x54623779, 0x64459eab, 0x3f328b82, 0x7718cf82, 0x59a2cea6,
-        0x04ee002e, 0x89fe78e6, 0x3fab0950, 0x325ff6C2, 0x81383f05, 0x6963c5c8,
+        0x04ee002e, 0x89fe78e6, 0x3fab0950, 0x325ff6c2, 0x81383f05, 0x6963c5c8,
         0x76cb5ad6, 0xd49974c9, 0xca180dcf, 0x380782d5, 0xc7fa5cf6, 0x8ac31511,
         0x35e79e13, 0x47da91d0, 0xf40f9086, 0xa7e2419e, 0x31366241, 0x051ef495,
         0xaa573b04, 0x4a805d8d, 0x548300d0, 0x00322a3c, 0xbf64cddf, 0xba57a68e,
@@ -52,7 +54,7 @@ const S_BOX: [[u32; 256]; 4] = [
         0x011a37ea, 0x8dbfaadb, 0x35ba3e4a, 0x3526ffa0, 0xc37b4d09, 0xbc306ed9,
         0x98a52666, 0x5648f725, 0xff5e569d, 0x0ced63d0, 0x7c63b2cf, 0x700b45e1,
         0xd5ea50f1, 0x85a92872, 0xaf1fbda7, 0xd4234870, 0xa7870bf3, 0x2d3b4d79,
-        0x42e04198, 0x0cd0ede7, 0x26470db8, 0xf881814C, 0x474d6ad7, 0x7c0c5e5c,
+        0x42e04198, 0x0cd0ede7, 0x26470db8, 0xf881814c, 0x474d6ad7, 0x7c0c5e5c,
         0xd1231959, 0x381b7298, 0xf5d2f4db, 0xab838653, 0x6e2f1e23, 0x83719c9e,
         0xbd91e046, 0x9a56456e, 0xdc39200c, 0x20c8c571, 0x962bda1c, 0xe1e696ff,
         0xb141ab08, 0x7cca89b9, 0x1a69e783, 0x02cc4843, 0xa2f7c579, 0x429ef47d,
@@ -196,36 +198,36 @@ const S_BOX: [[u32; 256]; 4] = [
 ];
 
 #[inline(always)]
-fn f1(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
-    let t: u32 = km.wrapping_add(k[x]).rotate_left(kr);
+fn f1(key: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
+    let t: u32 = km.wrapping_add(key[x]).rotate_left(kr);
     let mut u: u32;
     u  = S_BOX[0][byte(t, 3) as usize];
     u ^= S_BOX[1][byte(t, 2) as usize];
     u  = u.wrapping_sub(S_BOX[2][byte(t, 1) as usize]);
     u  = u.wrapping_add(S_BOX[3][byte(t, 0) as usize]);
-    k[y] ^= u;
+    key[y] ^= u;
 }
 
 #[inline(always)]
-fn f2(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
-    let t: u32 = (km ^ k[x]).rotate_left(kr);
+fn f2(key: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
+    let t: u32 = (km ^ key[x]).rotate_left(kr);
     let mut u: u32;
     u  = S_BOX[0][byte(t, 3) as usize];
     u  = u.wrapping_sub(S_BOX[1][byte(t, 2) as usize]);
     u  = u.wrapping_add(S_BOX[2][byte(t, 1) as usize]);
     u ^= S_BOX[3][byte(t, 0) as usize];
-    k[y] ^= u;
+    key[y] ^= u;
 }
 
 #[inline(always)]
-fn f3(k: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
-    let t: u32 = km.wrapping_sub(k[x]).rotate_left(kr);
+fn f3(key: &mut Cast256Key, y: usize, x: usize, kr: u32, km: u32) {
+    let t: u32 = km.wrapping_sub(key[x]).rotate_left(kr);
     let mut u: u32;
     u  = S_BOX[0][byte(t, 3) as usize];
     u  = u.wrapping_add(S_BOX[1][byte(t, 2) as usize]);
     u ^= S_BOX[2][byte(t, 1) as usize];
     u  = u.wrapping_sub(S_BOX[3][byte(t, 0) as usize]);
-    k[y] ^= u;
+    key[y] ^= u;
 }
 
 #[inline(always)]
@@ -269,19 +271,19 @@ pub fn get_key_schedule(key: Cast256Key) -> Cast256KeySchedule {
     let mut tm: Cast256Key = [0; 8];
     let mut tr: Cast256Key = [0; 8];
 
-    &lk[..].copy_from_slice(&key[..]);
+    lk[..].copy_from_slice(&key[..]);
 
     for elem in lk.iter_mut() {
         *elem = bswap(*elem);
     }
 
-    let mut cm: u32 = 0x5a827999;
+    let mut cm: u32 = 0x5a82_7999;
     let mut cr: u32 = 19;
 
     for i in (0..96).step_by(8) {
         for j in 0..8 {
             tm[j] = cm;
-            cm = cm.wrapping_add(0x6ed9eba1);
+            cm = cm.wrapping_add(0x6ed_9eba1);
             tr[j] = cr;
             cr = cr.wrapping_add(17);
         }
@@ -289,13 +291,13 @@ pub fn get_key_schedule(key: Cast256Key) -> Cast256KeySchedule {
 
         for j in 0..8 {
             tm[j] = cm;
-            cm = cm.wrapping_add(0x6ed9eba1);
+            cm = cm.wrapping_add(0x6ed_9eba1);
             tr[j] = cr;
             cr = cr.wrapping_add(17);
         }
         k_rnd(&mut lk, tr, tm);
 
-        l_key[i + 0] = lk[0];
+        l_key[i    ] = lk[0];
         l_key[i + 1] = lk[2];
         l_key[i + 2] = lk[4];
         l_key[i + 3] = lk[6];
@@ -311,7 +313,7 @@ pub fn get_key_schedule(key: Cast256Key) -> Cast256KeySchedule {
 pub fn encrypt(in_blk: &[u32], key_schedule: &Cast256KeySchedule) -> Cast256Block {
     let mut blk: Cast256Block = [0; 4];
 
-    &blk.copy_from_slice(&in_blk[..]);
+    blk.copy_from_slice(&in_blk[..]);
 
     for elem in blk.iter_mut() {
         *elem = bswap(*elem);
@@ -340,7 +342,7 @@ pub fn encrypt(in_blk: &[u32], key_schedule: &Cast256KeySchedule) -> Cast256Bloc
 pub fn decrypt(in_blk: &[u32], key_schedule: &Cast256KeySchedule) -> Cast256Block {
     let mut blk: Cast256Block = [0; 4];
 
-    &blk.copy_from_slice(&in_blk[..]);
+    blk.copy_from_slice(&in_blk[..]);
 
     for elem in blk.iter_mut() {
         *elem = bswap(*elem);

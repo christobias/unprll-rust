@@ -108,7 +108,7 @@ pub fn verify(message: SecretKey, ring: &Matrix<CompressedPoint>, signature: Sig
     // Initialize matrices and vectors
     let mut mat_l = Matrix::from_fn(rows, cols, |_,_| Point::default());
     let mut mat_r = Matrix::from_fn(rows, cols, |_,_| Point::default());
-    let mut c: Vec<Scalar> = (0..(rows + 1)).map(|_| Scalar::one()).collect();
+    let mut c: Vec<Scalar> = (0..=rows).map(|_| Scalar::one()).collect();
 
     let (key_images, c_0, signature) = signature;
 

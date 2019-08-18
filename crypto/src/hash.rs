@@ -83,7 +83,7 @@ impl Digest for CNFastHash {
         *Hash256Data::from_slice(&Keccak256Full::digest(data)[..32])
     }
     fn output_size() -> usize {
-        return 32;
+        32
     }
 }
 

@@ -2,7 +2,7 @@
 //! This implementation aims to follow the RingCT whitepaper with certain changes to variables
 //! for clarity
 //!
-//! **NOTE:** LSAGs are not used in RingCT (the more generic MLSAGs are used). This is a reference implementation 
+//! **NOTE:** LSAGs are not used in RingCT (the more generic MLSAGs are used). This is a reference implementation
 use crypto::{
     CNFastHash,
     Digest,
@@ -18,7 +18,7 @@ use crypto::{
 
 type Signature = (KeyImage, Scalar, Vec<Scalar>);
 
-pub fn sign(message: SecretKey, ring: &Vec<PublicKey>, index: usize, signing_key: SecretKey) -> Signature {
+pub fn sign(message: SecretKey, ring: &[PublicKey], index: usize, signing_key: SecretKey) -> Signature {
     let len = ring.len();
     // Generate key image
     let key_image = signing_key * crypto::ecc::data_to_point(&ring[index]);
@@ -64,13 +64,13 @@ pub fn sign(message: SecretKey, ring: &Vec<PublicKey>, index: usize, signing_key
     (key_image.compress(), vec_c[0], s)
 }
 
-pub fn verify(message: SecretKey, ring: &Vec<PublicKey>, signature: Signature) -> bool {
+pub fn verify(message: SecretKey, ring: &[PublicKey], signature: Signature) -> bool {
     let len = ring.len();
     let (key_image, c_0, s) = signature;
 
     let mut vec_l: Vec<Point> = (0..len).map(|_| Point::default()).collect();
     let mut vec_r = vec_l.clone();
-    let mut vec_c: Vec<Scalar> = (0..(len + 1)).map(|_| Scalar::default()).collect();
+    let mut vec_c: Vec<Scalar> = (0..=len).map(|_| Scalar::default()).collect();
 
     vec_c[0] = c_0;
 

@@ -8,6 +8,7 @@ pub struct Checkpoint {
     pub hash: Hash256
 }
 
+#[derive(Default)]
 pub struct Checkpoints {
     checkpoints: HashMap<u64, Hash256>
 }
@@ -32,16 +33,16 @@ impl Checkpoints {
         Ok(())
     }
     pub fn in_checkpoint_zone(&self, height: u64) -> bool {
-        self.checkpoints.len() > 0 && height <= *self.checkpoints.iter().last().unwrap().0
+        !self.checkpoints.is_empty() && height <= *self.checkpoints.iter().last().unwrap().0
     }
-    pub fn check_block(&self, height: &u64, hash: &Hash256) -> Result<bool, ()> {
-        if !self.checkpoints.contains_key(height) {
+    pub fn check_block(&self, height: u64, hash: &Hash256) -> Result<bool, ()> {
+        if !self.checkpoints.contains_key(&height) {
             return Ok(false);
-        } else if self.checkpoints[height] == *hash {
+        } else if self.checkpoints[&height] == *hash {
             debug!("CHECKPOINT PASSED FOR HEIGHT {} {}", height, hash);
             return Ok(true);
         }
-        warn!("CHECKPOINT FAILED FOR HEIGHT {}. EXPECTED HASH: {}, , FETCHED HASH: {}", height, self.checkpoints[height], hash);
+        warn!("CHECKPOINT FAILED FOR HEIGHT {}. EXPECTED HASH: {}, , FETCHED HASH: {}", height, self.checkpoints[&height], hash);
         Err(())
     }
 }

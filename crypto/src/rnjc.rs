@@ -68,10 +68,10 @@ impl RNJC {
         // CAST256 key
         let mut cast256_key: Cast256Key = [0; 8];
         // "Register" blocks
-        let mut a: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
-        let mut b: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
-        let mut c: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
-        let mut d: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
+        let mut reg_a: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
+        let mut reg_b: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
+        let mut reg_c: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
+        let mut reg_d: [u8; CAST256_BLOCK_SIZE] = [0; CAST256_BLOCK_SIZE];
 
         // Fill hash state
         hash_state[..200].copy_from_slice(&Keccak256Full::digest(data));
@@ -94,81 +94,80 @@ impl RNJC {
 
         // Initialize register blocks
         for i in 0..16 {
-            a[i] = hash_state[     i] ^ hash_state[32 + i];
-            b[i] = hash_state[16 + i] ^ hash_state[48 + i];
+            reg_a[i] = hash_state[     i] ^ hash_state[32 + i];
+            reg_b[i] = hash_state[16 + i] ^ hash_state[48 + i];
         }
 
         for i in 0..ITER {
-            let j: usize = e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE);
-            c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]);
-            let n = (a[0] as u32 ^ (i * recursion_depth)) & 3;
-            match n {
+            let index: usize = e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE);
+            reg_c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))]);
+            match (u32::from(reg_a[0]) ^ (i * recursion_depth)) & 3 {
                 0 => {
                     // CAST256 Encrypt
                     let mut buf: Cast256Key = [0; 8];
-                    byteorder::LittleEndian::read_u32_into(&a[..], &mut buf[..4]);
+                    byteorder::LittleEndian::read_u32_into(&reg_a[..], &mut buf[..4]);
                     cast256_key = cast_256::get_key_schedule(buf);
-                    byteorder::LittleEndian::read_u32_into(&c[..], &mut buf[..4]);
-                    byteorder::LittleEndian::write_u32_into(&cast_256::encrypt(&buf[..4], &cast256_key), &mut c[..]);
+                    byteorder::LittleEndian::read_u32_into(&reg_c[..], &mut buf[..4]);
+                    byteorder::LittleEndian::write_u32_into(&cast_256::encrypt(&buf[..4], &cast256_key), &mut reg_c[..]);
                 },
                 1 => {
                     // Multiply
-                    let a1: u128 = byteorder::LittleEndian::read_u64(&a[..8]).into();
-                    let c1: u128 = byteorder::LittleEndian::read_u64(&c[..8]).into();
+                    let a1: u128 = byteorder::LittleEndian::read_u64(&reg_a[..8]).into();
+                    let c1: u128 = byteorder::LittleEndian::read_u64(&reg_c[..8]).into();
                     let res: u128 = a1 * c1;
-                    byteorder::LittleEndian::write_u128(&mut d[..], res);
-                    let d1: u64 = byteorder::LittleEndian::read_u64(&d[..8]);
-                    let d2: u64 = byteorder::LittleEndian::read_u64(&d[8..]);
-                    byteorder::LittleEndian::write_u64(&mut d[..8], d2);
-                    byteorder::LittleEndian::write_u64(&mut d[8..], d1);
+                    byteorder::LittleEndian::write_u128(&mut reg_d[..], res);
+                    let d1: u64 = byteorder::LittleEndian::read_u64(&reg_d[..8]);
+                    let d2: u64 = byteorder::LittleEndian::read_u64(&reg_d[8..]);
+                    byteorder::LittleEndian::write_u64(&mut reg_d[..8], d2);
+                    byteorder::LittleEndian::write_u64(&mut reg_d[8..], d1);
                     // Half-add
-                    let mut a0: u64 = byteorder::LittleEndian::read_u64(&b[..8]);
-                    let mut a1: u64 = byteorder::LittleEndian::read_u64(&b[8..]);
-                    let b0: u64 = byteorder::LittleEndian::read_u64(&d[..8]);
-                    let b1: u64 = byteorder::LittleEndian::read_u64(&d[8..]);
+                    let mut a0: u64 = byteorder::LittleEndian::read_u64(&reg_b[..8]);
+                    let mut a1: u64 = byteorder::LittleEndian::read_u64(&reg_b[8..]);
+                    let b0: u64 = byteorder::LittleEndian::read_u64(&reg_d[..8]);
+                    let b1: u64 = byteorder::LittleEndian::read_u64(&reg_d[8..]);
                     a0 = a0.wrapping_add(b0);
                     a1 = a1.wrapping_add(b1);
-                    byteorder::LittleEndian::write_u64(&mut b[..8], a0);
-                    byteorder::LittleEndian::write_u64(&mut b[8..], a1);
+                    byteorder::LittleEndian::write_u64(&mut reg_b[..8], a0);
+                    byteorder::LittleEndian::write_u64(&mut reg_b[8..], a1);
                 },
                 2 => {
-                    let tmp = apply_hash(&c, a[0] & 3);
-                    c.copy_from_slice(&tmp[..16]);
+                    let tmp = apply_hash(&reg_c, reg_a[0] & 3);
+                    reg_c.copy_from_slice(&tmp[..16]);
                 },
                 3 => {
                     // CAST256 Decrypt
                     let mut buf: Cast256Key = [0; 8];
-                    byteorder::LittleEndian::read_u32_into(&a[..], &mut buf[..4]);
+                    byteorder::LittleEndian::read_u32_into(&reg_a[..], &mut buf[..4]);
                     cast256_key = cast_256::get_key_schedule(buf);
-                    byteorder::LittleEndian::read_u32_into(&c[..], &mut buf[..4]);
-                    byteorder::LittleEndian::write_u32_into(&cast_256::decrypt(&mut buf[..4], &cast256_key), &mut c[..]);
+                    byteorder::LittleEndian::read_u32_into(&reg_c[..], &mut buf[..4]);
+                    byteorder::LittleEndian::write_u32_into(&cast_256::decrypt(&buf[..4], &cast256_key), &mut reg_c[..]);
                 },
                 _ => unreachable!()
             }
-            xor_blocks(&mut b, &c);
-            swap_blocks(&mut b, &mut c);
-            long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&c);
-            assert_eq!(j, e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE));
-            swap_blocks(&mut a, &mut b);
+            xor_blocks(&mut reg_b, &reg_c);
+            swap_blocks(&mut reg_b, &mut reg_c);
+            long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))].copy_from_slice(&reg_c);
+            assert_eq!(index, e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE));
+            swap_blocks(&mut reg_a, &mut reg_b);
         }
 
         // Recursion
         if recursion_depth > 0 {
             for i in 0..RECURSION_ITER {
                 // Iteration 1
-                let j = e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE);
-                c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]);
-                let tmp_hash = RNJC::rnjc_recursive(&a, recursion_depth - 1);
+                let j = e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE);
+                reg_c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]);
+                let tmp_hash = RNJC::rnjc_recursive(&reg_a, recursion_depth - 1);
                 if i % 2 == 0 {
-                    c.copy_from_slice(&tmp_hash[..CAST256_BLOCK_SIZE]);
+                    reg_c.copy_from_slice(&tmp_hash[..CAST256_BLOCK_SIZE]);
                 } else {
-                    c.copy_from_slice(&tmp_hash[CAST256_BLOCK_SIZE..]);
+                    reg_c.copy_from_slice(&tmp_hash[CAST256_BLOCK_SIZE..]);
                 }
-                xor_blocks(&mut b, &c);
-                swap_blocks(&mut b, &mut c);
-                long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&c);
-                assert_eq!(j, e2i(&a[..8], MEMORY / CAST256_BLOCK_SIZE));
-                swap_blocks(&mut a, &mut b);
+                xor_blocks(&mut reg_b, &reg_c);
+                swap_blocks(&mut reg_b, &mut reg_c);
+                long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&reg_c);
+                assert_eq!(j, e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE));
+                swap_blocks(&mut reg_a, &mut reg_b);
             }
         }
 
@@ -183,9 +182,9 @@ impl RNJC {
         // Fill scratchpad
         for i in 0..(MEMORY / INIT_SIZE_BYTE) {
             for j in 0..INIT_SIZE_BLK {
-                byteorder::LittleEndian::write_u32_into(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &mut b);
-                xor_blocks(&mut b, &long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)]);
-                byteorder::LittleEndian::read_u32_into(&b, &mut text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]);
+                byteorder::LittleEndian::write_u32_into(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &mut reg_b);
+                xor_blocks(&mut reg_b, &long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)]);
+                byteorder::LittleEndian::read_u32_into(&reg_b, &mut text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]);
 
                 let res = &cast_256::encrypt(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &cast256_key);
                 text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))].copy_from_slice(res);
@@ -198,8 +197,7 @@ impl RNJC {
         keccak::f1600(&mut tmp);
         byteorder::LittleEndian::write_u64_into(&tmp, &mut hash_state);
 
-        let n: u8 = hash_state[0] & 3;
-        apply_hash(&hash_state, n)
+        apply_hash(&hash_state, hash_state[0] & 3)
     }
 
     #[inline(always)]
@@ -237,7 +235,7 @@ impl Digest for RNJC {
         RNJC::rnjc(data)
     }
     fn output_size() -> usize {
-        return 32;
+        32
     }
 }
 

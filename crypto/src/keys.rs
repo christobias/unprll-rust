@@ -1,4 +1,8 @@
-use curve25519_dalek::{scalar::Scalar, edwards::CompressedEdwardsY, constants::ED25519_BASEPOINT_POINT};
+use curve25519_dalek::{
+    constants::ED25519_BASEPOINT_POINT,
+    edwards::CompressedEdwardsY,
+    scalar::Scalar
+};
 use rand;
 
 use crate::hash::Hash256;
@@ -24,12 +28,11 @@ impl KeyPair {
 impl From<Scalar> for KeyPair {
     fn from(secret_key: Scalar) -> Self {
         // TODO: Find out why basepoint table scalar multiplication doesn't work
-        let public_key = (secret_key * &ED25519_BASEPOINT_POINT).compress();
-        let kp = Self {
+        let public_key = (secret_key * ED25519_BASEPOINT_POINT).compress();
+        Self {
             secret_key,
             public_key
-        };
-        kp
+        }
     }
 }
 

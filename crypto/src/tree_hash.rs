@@ -4,7 +4,7 @@ use crate::hash::{Hash256, CNFastHash};
 
 fn tree_hash_cnt(count: usize) -> usize {
     assert!(count >= 3);
-    assert!(count <= 0x10000000);
+    assert!(count <= 0x1000_0000);
 
     let mut pow: usize = 2;
     while pow < count {
@@ -13,8 +13,8 @@ fn tree_hash_cnt(count: usize) -> usize {
     pow >> 1
 }
 
-pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
-    assert!(hashes.len() > 0);
+pub fn tree_hash(hashes: &[Hash256]) -> Hash256 {
+    assert!(!hashes.is_empty());
     match hashes.len() {
         1 => hashes[0].clone(),
         2 => {
@@ -27,8 +27,8 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
             let mut cnt = tree_hash_cnt(hashes.len());
             let mut buf: Vec<u8> = Vec::with_capacity(cnt * 32);
 
-            for i in 0..(2 * cnt - hashes.len()) {
-                buf.extend_from_slice(hashes[i].data());
+            for hash in hashes.iter().take(2 * cnt - hashes.len()) {
+                buf.extend_from_slice(hash.data());
             }
 
             for _i in (2 * cnt - hashes.len())..(cnt * 32) {
@@ -40,7 +40,7 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
                 let mut tmp: [u8; 64] = [0; 64];
                 tmp[..32].copy_from_slice(&hashes[i    ].data());
                 tmp[32..].copy_from_slice(&hashes[i + 1].data());
-                &buf[(j * 32)..((j + 1) * 32)].copy_from_slice(&CNFastHash::digest(&tmp));
+                buf[(j * 32)..((j + 1) * 32)].copy_from_slice(&CNFastHash::digest(&tmp));
                 i += 2;
             }
             assert!(i == hashes.len());
@@ -50,7 +50,7 @@ pub fn tree_hash(hashes: &Vec<Hash256>) -> Hash256 {
                 let mut i = 0;
                 for j in (0..(cnt * 32)).step_by(32) {
                     let t = &CNFastHash::digest(&buf[i..(i + 64)]);
-                    &buf[j..(j + 32)].copy_from_slice(t);
+                    buf[j..(j + 32)].copy_from_slice(t);
                     i += 64;
                 }
             }
