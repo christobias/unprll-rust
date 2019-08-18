@@ -14,7 +14,10 @@ pub use config::Config;
 pub use transaction::{Transaction,TransactionPrefix,TXIn,TXOut,TXOutTarget};
 
 pub trait GetHash {
-    fn get_hash(&self) -> Hash256;
+    fn get_hash_blob(&self) -> Vec<u8>;
+    fn get_hash(&self) -> Hash256 {
+        Hash256::from(crypto::CNFastHash::digest(&self.get_hash_blob()))
+    }
 }
 
 pub struct Address {
