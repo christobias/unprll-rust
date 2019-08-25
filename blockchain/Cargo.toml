@@ -5,6 +5,9 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+bincode = "1.1"
 blockchain_db = { path = "../blockchain_db" }
 common = { path = "../common" }
 crypto = { path = "../crypto" }
+hex = "0.3"
+log = "0.4"

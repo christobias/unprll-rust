@@ -1,101 +1,67 @@
-use crypto::{PublicKey, KeyImage};
-use common::{Address, Config};
+use log::info;
+
 use blockchain_db::{BlockchainDB, Result};
-use common::Block;
-use crypto::Hash256;
+use common::{
+    Block,
+    Config,
+    GetHash,
+    PreliminaryChecks
+};
+use crypto::{
+    Hash256
+};
 
 pub struct Blockchain {
-    blockchain_db: Box<dyn BlockchainDB + Sync + Send>
+    alternative_blocks: Vec<Block>,
+
+    blockchain_db: BlockchainDB
 }
 
 impl Blockchain {
     pub fn new(config: &Config) -> Result<Self> {
-        Ok(Blockchain {
-            blockchain_db: match config.db_type.as_ref() {
-                "memory" => Box::new(blockchain_db::BlockchainMemDB::new()),
-                "lmdb" => Box::new(blockchain_db::BlockchainLMDB::new(&Box::from(std::path::Path::new("")))?),
-                _ => panic!("Unknown DB type!")
-            }
-        })
+        let mut blockchain = Blockchain {
+            alternative_blocks: Vec::new(),
+            blockchain_db: BlockchainDB::new(config)
+        };
+        if blockchain.blockchain_db.get_block_by_height(0).is_none() {
+            // Add the genesis block
+            blockchain.add_new_block(Block::genesis())?;
+        }
+        Ok(blockchain)
     }
 
     // Blocks
-    pub fn get_blocks(&self, start: u64, count: u64) -> Result<Vec<Block>> {
+    pub fn get_blocks(&self, start: u64, count: u64) -> Option<Vec<Block>> {
         let mut vec = Vec::new();
         for i in start..(start+count) {
             vec.push(self.blockchain_db.get_block_by_height(i)?);
         }
-        Ok(vec)
+        Some(vec)
     }
 
-    pub fn get_alternative_blocks() -> Result<Vec<Block>> {
-        unimplemented!()
-    }
-
-    pub fn get_block(&self, id: &Hash256) -> Result<Block> {
-        self.blockchain_db.get_block_by_hash(id)
-    }
-
-    pub fn create_block_template(_miner_address: Address) -> Block {
-        unimplemented!()
+    pub fn get_alternative_blocks(&self) -> &Vec<Block> {
+        &self.alternative_blocks
     }
 
     pub fn add_new_block(&mut self, block: Block) -> Result<()> {
-        self.blockchain_db.add_block(block, 0, 0, 0, Vec::new())
-    }
-
-    // Transactions
-    pub fn have_tx(&self, id: &Hash256) -> bool {
-        self.blockchain_db.get_transaction(id).is_ok()
-    }
-
-    pub fn is_keyimage_spent(key_image: KeyImage) -> bool {
-        unimplemented!()
-    }
-
-    // Outputs
-    pub fn get_num_mature_rct_outputs() -> u64 {
-        unimplemented!()
-    }
-
-    pub fn get_rct_output_key(global_index: u64) -> PublicKey {
-        unimplemented!()
-    }
-
-    pub fn get_outputs() {
-        unimplemented!()
-    }
-
-    pub fn get_output(global_index: u64) {
-        unimplemented!()
-    }
-
-    pub fn get_rct_output_distribution(from: u64, to: u64) -> Vec<u64> {
-        unimplemented!()
+        self.blockchain_db.check(&block)?;
+        self.blockchain_db.add_block(block.clone(), Vec::new())?;
+        let (height, _) = self.get_tail()?;
+        info!("Added new block:\tBlock ID: {}\tBlock Height: {}", block.get_hash(), height);
+        Ok(())
     }
 
     // Other
-    pub fn get_tail() -> (u64, Block) {
-        unimplemented!()
-    }
-
     pub fn get_short_chain_history() -> Vec<Hash256> {
         unimplemented!()
     }
 
-    pub fn find_blockchain_supplement(short_history: Vec<Hash256>) -> Result<Vec<Hash256>> {
+    pub fn find_blockchain_supplement(_short_history: Vec<Hash256>) -> Result<Vec<Hash256>> {
         unimplemented!()
     }
 
-    pub fn reset() {
-        unimplemented!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+    // pub fn have_tx(&self, id: &Hash256) -> bool { self.blockchain_db.get_transaction(id).is_some() }
+    // pub fn is_keyimage_spent(&self, key_image: &KeyImage) -> bool { self.blockchain_db.has_key_image(key_image) }
+    pub fn get_block(&self, id: &Hash256) -> Option<Block> { self.blockchain_db.get_block_by_hash(id) }
+    pub fn get_tail(&self) -> Result<(u64, Block)> { self.blockchain_db.get_tail() }
 }
