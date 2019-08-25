@@ -5,14 +5,13 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+bincode = "1.1"
 common = { path = "../common" }
 cryptonote_core = { path = "../core" }
 futures = "0.1"
+hex = "0.3"
 hyper = "0.12"
-jsonrpc-core = { git = "https://github.com/christobias/jsonrpc" }
-jsonrpc-core-client = { git = "https://github.com/christobias/jsonrpc" }
-jsonrpc-derive = { git = "https://github.com/christobias/jsonrpc" }
-jsonrpc-http-server = { git = "https://github.com/christobias/jsonrpc" }
+jsonrpc-v2 = { version = "0.3", default-features = false, features = ["easy_errors", "hyper"]}
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 tokio = "0.1"
