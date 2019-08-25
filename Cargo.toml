@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "bin/common",
+  "bin/unprll-miner",
   "bin/unprlld",
   "bincode_epee",
   "blockchain",

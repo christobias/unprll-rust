@@ -1,0 +1,18 @@
+[package]
+name = "unprll-miner"
+version = "0.1.0"
+authors = ["Christopher Tobias <ctobias@gmx.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bincode = "1.1"
+common = { path = "../../common" }
+compat = { path = "../../compat" }
+crypto = { path = "../../crypto" }
+futures = "0.1"
+hex = "0.3"
+jsonrpc = "0.11.0"
+rpc = { path = "../../rpc" }
+tokio = "0.1"
