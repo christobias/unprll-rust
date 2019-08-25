@@ -13,5 +13,6 @@ members = [
   "crypto",
   "p2p",
   "ringct",
-  "rpc"
+  "rpc",
+  "txpool"
 ]
