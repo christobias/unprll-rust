@@ -96,13 +96,9 @@ impl Block {
 
 impl GetHash for Block {
     fn get_hash_blob(&self) -> Vec<u8> {
-        // Block timestamp fuzzing
-        let mut header = self.header.clone();
-        header.timestamp = header.timestamp - (header.timestamp % 600) + 300;
-
         let mut vec = Vec::with_capacity(std::mem::size_of_val(self));
         // Serialize the header
-        vec.extend_from_slice(&bincode_epee::serialize(&header).unwrap());
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header).unwrap());
 
         // Get and serialize the tree hash of the block (including the miner transaction)
         let mut hashes = vec!{self.miner_tx.get_hash()};
