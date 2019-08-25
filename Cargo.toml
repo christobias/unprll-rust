@@ -6,6 +6,7 @@ members = [
   "blockchain",
   "blockchain_db",
   "common",
+  "compat",
   "config",
   "core",
   "crypto",
