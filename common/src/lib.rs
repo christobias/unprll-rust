@@ -1,17 +1,29 @@
 #[macro_use] extern crate log;
 
-use crypto::Hash256;
-use crypto::{PublicKey};
+use crypto::{
+    Digest,
+    Hash256,
+    PublicKey
+};
 
 mod block;
 mod checkpoints;
 mod config;
 mod transaction;
 
-pub use block::Block;
+pub use block::{
+    Block,
+    BlockHeader
+};
 pub use checkpoints::Checkpoints;
 pub use config::Config;
-pub use transaction::{Transaction,TransactionPrefix,TXIn,TXOut,TXOutTarget};
+pub use transaction::{
+    Transaction,
+    TransactionPrefix,
+    TXIn,
+    TXOut,
+    TXOutTarget
+};
 
 pub trait GetHash {
     fn get_hash_blob(&self) -> Vec<u8>;
