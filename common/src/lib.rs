@@ -20,6 +20,10 @@ pub trait GetHash {
     }
 }
 
+pub trait PreliminaryChecks<T> {
+    fn check(&self, value: &T) -> Result<(), failure::Error>;
+}
+
 pub struct Address {
     pub view_public_key: PublicKey,
     pub spend_public_key: PublicKey
