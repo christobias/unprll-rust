@@ -22,14 +22,8 @@ pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
     let mut log_file_path = if let Some(custom_data_directory) = &config.data_directory {
         custom_data_directory.to_path_buf()
     } else {
-        directories::ProjectDirs::from("cash", "Unprll Project", "Unprll").expect("Failed to get project user directory").data_dir().to_path_buf()
+        common::data_dir::get_default_data_dir()
     };
-
-    std::fs::create_dir_all(&log_file_path).unwrap_or_else(|err| {
-        if err.kind() != std::io::ErrorKind::AlreadyExists {
-            panic!("Unexpected error when creating log directory {}", err);
-        }
-    });
 
     log_file_path.push(binary_name);
     log_file_path.set_extension("log");

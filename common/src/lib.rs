@@ -8,6 +8,7 @@ use crypto::{
 
 mod block;
 mod checkpoints;
+pub mod data_dir;
 mod transaction;
 
 pub use block::{
