@@ -8,7 +8,6 @@ use crypto::{
 
 mod block;
 mod checkpoints;
-mod config;
 mod transaction;
 
 pub use block::{
@@ -16,7 +15,6 @@ pub use block::{
     BlockHeader
 };
 pub use checkpoints::Checkpoints;
-pub use config::Config;
 pub use transaction::{
     Transaction,
     TransactionPrefix,

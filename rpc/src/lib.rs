@@ -10,13 +10,13 @@ use tokio::{
     runtime::Runtime
 };
 
-use common::{
-    Config,
-};
 use cryptonote_core::CryptonoteCore;
 
 pub mod api_definitions;
+mod config;
 mod rpc_server;
+
+pub use config::Config;
 
 pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) {
     let addr = format!("127.0.0.1:{}", config.rpc_bind_port).parse().unwrap();

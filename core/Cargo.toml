@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 blockchain = { path = "../blockchain" }
 common = { path = "../common" }
+structopt = "0.2"
 txpool = { path = "../txpool" }

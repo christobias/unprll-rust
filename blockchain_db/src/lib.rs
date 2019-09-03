@@ -6,17 +6,18 @@ use crypto::{
 };
 use common::{
     Block,
-    Config,
     GetHash,
     PreliminaryChecks,
     Transaction,
     TXIn
 };
 
+mod config;
 mod error;
 // mod lmdb;
 mod mem;
 
+pub use config::Config;
 pub use error::Result;
 
 /// Manages communication between the database and the rest of the application.

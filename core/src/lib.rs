@@ -1,11 +1,8 @@
-use std::sync::{
-    Arc,
-    RwLock
-};
-
 use blockchain::Blockchain;
-use common::Config;
 use txpool::TXPool;
+
+mod config;
+pub use config::Config;
 
 /// # Cryptonote Core
 ///
@@ -18,7 +15,7 @@ pub struct CryptonoteCore {
 
 impl CryptonoteCore {
     pub fn new(config: &Config) -> Self {
-        let blockchain = Blockchain::new(config).expect("Failed to initialize Blockchain");
+        let blockchain = Blockchain::new(&config.blockchain_config).expect("Failed to initialize Blockchain");
         let txpool     = TXPool::new();
         CryptonoteCore {
             blockchain,

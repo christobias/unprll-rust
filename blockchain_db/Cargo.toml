@@ -11,3 +11,4 @@ crypto = { path = "../crypto" }
 failure = "0.1"
 hex = "0.3"
 rkv = "0.9"
+structopt = "0.2"

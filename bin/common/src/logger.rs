@@ -1,5 +1,7 @@
-use common::Config;
 use fern::colors::Color;
+use log::info;
+
+use crate::Config;
 
 pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
     let colors = fern::colors::ColoredLevelConfig::new()

@@ -1,8 +1,6 @@
 #[macro_use] extern crate libp2p;
 #[macro_use] extern crate log;
 
-mod net_behavior;
-
 use libp2p::PeerId;
 use libp2p::Swarm;
 use libp2p::identity::Keypair;
@@ -10,9 +8,12 @@ use libp2p::multiaddr::{Multiaddr, Protocol};
 use tokio::prelude::*;
 use tokio::runtime::Runtime;
 
-use common::Config;
 use cryptonote_core::CryptonoteCore;
 
+mod config;
+mod net_behavior;
+
+use config::Config;
 use net_behavior::CryptonoteNetworkBehavior;
 
 pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) -> Result<(), std::io::Error> {

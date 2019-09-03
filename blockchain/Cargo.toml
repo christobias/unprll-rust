@@ -11,3 +11,4 @@ common = { path = "../common" }
 crypto = { path = "../crypto" }
 hex = "0.3"
 log = "0.4"
+structopt = "0.2"

@@ -1,15 +1,20 @@
 use log::info;
 
-use blockchain_db::{BlockchainDB, Result};
+use blockchain_db::{
+    BlockchainDB,
+    Result
+};
 use common::{
     Block,
-    Config,
     GetHash,
     PreliminaryChecks
 };
 use crypto::{
     Hash256
 };
+
+mod config;
+pub use config::Config;
 
 pub struct Blockchain {
     alternative_blocks: Vec<Block>,
@@ -21,7 +26,7 @@ impl Blockchain {
     pub fn new(config: &Config) -> Result<Self> {
         let mut blockchain = Blockchain {
             alternative_blocks: Vec::new(),
-            blockchain_db: BlockchainDB::new(config)
+            blockchain_db: BlockchainDB::new(&config.blockchain_db_config)
         };
         if blockchain.blockchain_db.get_block_by_height(0).is_none() {
             // Add the genesis block
