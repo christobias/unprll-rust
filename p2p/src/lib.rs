@@ -1,22 +1,31 @@
-#[macro_use] extern crate libp2p;
-#[macro_use] extern crate log;
+use std::sync::{
+    Arc,
+    RwLock
+};
 
-use libp2p::PeerId;
-use libp2p::Swarm;
-use libp2p::identity::Keypair;
-use libp2p::multiaddr::{Multiaddr, Protocol};
-use tokio::prelude::*;
-use tokio::runtime::Runtime;
+use libp2p::{
+    identity::Keypair,
+    multiaddr::{Multiaddr, Protocol},
+    PeerId,
+    Swarm
+};
+use log::info;
+use tokio::{
+    runtime::Runtime,
+    prelude::*
+};
 
-use cryptonote_core::CryptonoteCore;
+use cryptonote_core::{
+    CryptonoteCore
+};
 
 mod config;
-mod net_behavior;
+mod cryptonote_protocol;
 
-use config::Config;
-use net_behavior::CryptonoteNetworkBehavior;
+pub use config::Config;
+use cryptonote_protocol::CryptonoteNetworkBehavior;
 
-pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) -> Result<(), std::io::Error> {
+pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) -> Result<(), std::io::Error> {
     // Create a random PeerId
     let local_key = Keypair::generate_ed25519();
     let peer_id = PeerId::from(local_key.public());
@@ -24,7 +33,7 @@ pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) -> Res
     // Set up the swarm
     let mut swarm = {
         let transport = libp2p::build_development_transport(local_key);
-        let network_behavior = CryptonoteNetworkBehavior::new(peer_id.clone(), core);
+        let network_behavior = CryptonoteNetworkBehavior::new(peer_id.clone(), core.clone());
         Swarm::new(transport, network_behavior, peer_id)
     };
 
@@ -36,12 +45,13 @@ pub fn init(config: &Config, runtime: &mut Runtime, core: CryptonoteCore) -> Res
         m
     };
 
+    if let Some(peer) = &config.connect_to {
+        Swarm::dial_addr(&mut swarm, peer.parse().unwrap()).unwrap();
+    }
     Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
 
-    runtime.spawn(swarm.into_future().then(|_| {
-        Ok(())
-    }));
-    info!("P2P server listening on {}", addr);
+    runtime.spawn(swarm.into_future().map(|_| {}).map_err(|_| {}));
 
+    info!("P2P server listening on {}", addr);
     Ok(())
 }

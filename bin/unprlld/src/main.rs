@@ -35,7 +35,7 @@ fn run(config: Config) -> Result<(), std::io::Error> {
     // Cryptonote Core Hub
     let core = Arc::new(RwLock::new(CryptonoteCore::new(&config.cryptonote_core_config)));
 
-    // p2p::init(&config, &mut runtime, core.clone())?;
+    p2p::init(&config.p2p_config, &mut runtime, core.clone())?;
     rpc::init(&config.rpc_config, &mut runtime, core);
 
     runtime.shutdown_on_idle().wait().unwrap_or_else(|_| error!("Runtime shut down abruptly!"));
