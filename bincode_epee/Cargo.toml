@@ -9,7 +9,7 @@ publish =  true
 readme = "./readme.md"
 categories = ["encoding", "network-programming"]
 keywords = ["binary", "encode", "decode", "serialize", "deserialize", "epee"]
-build = "build.rs"
+# build = "build.rs"
 
 license = "MIT"
 description = "bincode with support for serialization into the epee format used in Monero"
