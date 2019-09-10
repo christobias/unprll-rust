@@ -80,6 +80,7 @@ impl Future for MinerStateMachine {
                             // Tail has changed, reset
                             reset = true;
                         }
+                        self.last_prev_id = Some(last_prev_id);
                     } else {
                         // Fresh start, reset anyway
                         info!("Starting miner...");
