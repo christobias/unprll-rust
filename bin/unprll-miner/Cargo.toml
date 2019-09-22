@@ -9,10 +9,10 @@ edition = "2018"
 [dependencies]
 bin_common = { path = "../common" }
 bincode = "1.1"
+coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 compat = { path = "../../compat" }
 crypto = { path = "../../crypto" }
-cryptonote_config = { path = "../../config" }
 futures = "0.1"
 hex = "0.3"
 reqwest = { version = "0.9", features = ["rustls"] }

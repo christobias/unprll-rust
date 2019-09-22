@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn run(config: Config) -> Result<(), std::io::Error> {
-    info!("Unprll {}", format!("{} - {}", cryptonote_config::VERSION, cryptonote_config::RELEASE_NAME));
+    info!("{}", format!("{:?} - {:?}", coin_specific::coin_info::COIN_NAME, coin_specific::coin_info::VERSION));
     let mut runtime = Runtime::new()?;
 
     // Cryptonote Core Hub

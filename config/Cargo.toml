@@ -1,7 +1,0 @@
-[package]
-name = "cryptonote_config"
-version = "1.0.0"
-authors = ["Christopher Tobias <ctobias@gmx.com>"]
-edition = "2018"
-
-[dependencies]
