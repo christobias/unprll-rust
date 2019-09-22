@@ -1,0 +1,9 @@
+[package]
+name = "wallet"
+version = "0.1.0"
+authors = ["Christopher Tobias <ctobias@gmx.com>"]
+edition = "2018"
+
+[dependencies]
+crypto = { path = "../crypto" }
+hex = "0.3"

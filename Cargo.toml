@@ -14,5 +14,6 @@ members = [
   "p2p",
   "ringct",
   "rpc",
-  "txpool"
+  "txpool",
+  "wallet"
 ]
