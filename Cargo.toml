@@ -2,6 +2,7 @@
 members = [
   "bin/common",
   "bin/unprll-miner",
+  "bin/unprll-wallet-rpc",
   "bin/unprlld",
   "bincode_epee",
   "blockchain",

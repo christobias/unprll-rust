@@ -1,0 +1,20 @@
+[package]
+name = "unprll-wallet-rpc"
+version = "0.1.0"
+authors = ["Christopher Tobias <ctobias@gmx.com>"]
+edition = "2018"
+
+[dependencies]
+bincode = "1.1"
+bin_common = { path = "../common" }
+crypto = { path = "../../crypto" }
+failure = "0.1"
+futures = "0.1"
+hex = "0.3"
+hyper = "0.12"
+jsonrpc-v2 = { version = "0.3", default-features = false, features = ["easy_errors", "hyper"]}
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+structopt = "0.2"
+tokio = "0.1"
+wallet = { path = "../../wallet" }
