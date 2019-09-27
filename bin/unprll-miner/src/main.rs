@@ -22,7 +22,7 @@ fn main() {
 
     bin_common::logger::init(&config.bin_common_config, "unprll-miner").unwrap();
 
-    info!("{}", format!("{:?} - {:?}", coin_specific::coin_info::COIN_NAME, coin_specific::coin_info::VERSION));
+    info!("{}", format!("{:?} - {:?}", coin_specific::COIN_NAME, coin_specific::VERSION));
 
     runtime.spawn(MinerStateMachine::new(&config));
     runtime.shutdown_on_idle().wait().unwrap();

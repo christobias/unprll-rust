@@ -8,17 +8,26 @@ use crypto::{
     SecretKey
 };
 
-pub struct Wallet {
+pub mod address;
+
+use address::Address;
+
+pub struct Wallet<TCoinConfig> {
     spend_keypair: KeyPair,
-    view_keypair: KeyPair
+    view_keypair: KeyPair,
+    marker: std::marker::PhantomData<TCoinConfig>
 }
 
-impl Wallet {
+impl<TCoinConfig> Wallet<TCoinConfig>
+where
+    TCoinConfig: address::AddressPrefixConfig
+{
     /// Generate a wallet instance from a spend secret key and view secret key
     pub fn from_secret_keys(spend_secret_key: SecretKey, view_secret_key: SecretKey) -> Self {
         Wallet {
             spend_keypair: KeyPair::from(spend_secret_key),
-            view_keypair: KeyPair::from(view_secret_key)
+            view_keypair: KeyPair::from(view_secret_key),
+            marker: std::marker::PhantomData
         }
     }
 
@@ -30,6 +39,15 @@ impl Wallet {
         let view_secret_key = SecretKey::from_slice(&CNFastHash::digest(&spend_secret_key.to_bytes()));
 
         Self::from_secret_keys(spend_secret_key, view_secret_key)
+    }
+
+    pub fn get_address_for_index(&self, major: u64, minor: u64) -> Option<Address<TCoinConfig>> {
+        if major == 0 && minor == 0 {
+            Some(Address::standard(self.spend_keypair.public_key, self.view_keypair.public_key))
+        } else {
+            // TODO: Implement subaddresses
+            None
+        }
     }
 
     pub fn spend_keypair(&self) -> &KeyPair {
@@ -44,11 +62,17 @@ impl Wallet {
 mod tests {
     use super::*;
 
+    pub struct TestPrefixes;
+
+    impl address::AddressPrefixConfig for TestPrefixes {
+        const STANDARD:   u64 = 0x0014_5023; // UNP
+        const SUBADDRESS: u64 = 0x0021_1023; // UNPS
+        const INTEGRATED: u64 = 0x0029_1023; // UNPi
+    }
+
     #[test]
     fn it_works() {
-        let mut spend_secret_key = [0; 32];
-        spend_secret_key.copy_from_slice(&hex::decode("91ca5959117826861a8d3dba04ef036aba07ca4e02b9acf28fc1e3af25c4400a").unwrap());
-        let w = Wallet::from(SecretKey::from_bytes_mod_order(spend_secret_key));
+        let w: Wallet<TestPrefixes> = Wallet::from(SecretKey::from_slice(&hex::decode("91ca5959117826861a8d3dba04ef036aba07ca4e02b9acf28fc1e3af25c4400a").unwrap()));
 
         // This given set of keys is that of a testnet wallet. As all keys are in public view,
         // DO NOT use this wallet for storing any coins

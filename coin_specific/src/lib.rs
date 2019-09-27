@@ -1,1 +1,10 @@
-pub mod coin_info;
+pub const COIN_NAME: (&str, &str) = ("Unprll", "ULL");
+pub const VERSION: (&str, &str) = ("v1.0.0", "Rusty Rabbit");
+
+pub struct Unprll;
+
+impl wallet::address::AddressPrefixConfig for Unprll {
+    const STANDARD: u64 = 0x0014_5023;   // UNP
+    const SUBADDRESS: u64 = 0x0021_1023; // UNPS
+    const INTEGRATED: u64 = 0x0029_1023; // UNPi
+}
