@@ -41,7 +41,7 @@ impl Miner {
         if let Some(mut block) = block {
             let mut hash = *block.header.hash_checkpoints.last().expect("Apparently initialized block doesn't have any hashes").data();
 
-            if compat::difficulty::check_hash_for_difficulty(&hash, self.difficulty) {
+            if common::difficulty::check_hash_for_difficulty(&hash, self.difficulty) {
                 block.header.hash_checkpoints.push(Hash256::from(hash));
                 self.block = Some(block);
                 return true;

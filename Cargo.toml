@@ -9,7 +9,6 @@ members = [
   "blockchain_db",
   "coin_specific",
   "common",
-  "compat",
   "core",
   "crypto",
   "p2p",

@@ -11,7 +11,6 @@ bin_common = { path = "../common" }
 bincode = "1.1"
 coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
-compat = { path = "../../compat" }
 crypto = { path = "../../crypto" }
 futures = "0.1"
 hex = "0.3"
