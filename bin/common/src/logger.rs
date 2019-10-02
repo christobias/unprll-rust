@@ -3,6 +3,9 @@ use log::info;
 
 use crate::Config;
 
+/// Initializes a logger for a given binary.
+///
+/// Currently prints the log to stdout and stores it in a log file in `<data_dir>/<binary_name>.log`
 pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
     let colors = fern::colors::ColoredLevelConfig::new()
         .error(Color::Red)

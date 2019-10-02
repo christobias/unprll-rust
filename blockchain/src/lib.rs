@@ -1,3 +1,8 @@
+#![deny(missing_docs)]
+
+//! # Blockchain management
+//! This crate handles the blockchain
+
 use std::collections::VecDeque;
 
 use log::info;
@@ -24,6 +29,7 @@ use futures::{
 mod config;
 pub use config::Config;
 
+/// An interface to the stored blockchain
 pub struct Blockchain {
     alternative_blocks: Vec<Block>,
     blockchain_db: BlockchainDB,
@@ -32,6 +38,7 @@ pub struct Blockchain {
 }
 
 impl Blockchain {
+    /// Creates a new Blockchain with the given configuration
     pub fn new(config: &Config) -> Result<Self> {
         let mut blockchain = Blockchain {
             alternative_blocks: Vec::new(),
@@ -47,6 +54,7 @@ impl Blockchain {
     }
 
     // Blocks
+    /// Get `count` blocks from `start`
     pub fn get_blocks(&self, start: u64, count: u64) -> Option<Vec<Block>> {
         let mut vec = Vec::new();
         for i in start..(start+count) {
@@ -55,10 +63,23 @@ impl Blockchain {
         Some(vec)
     }
 
+    /// Get a reference to alternative blocks received from other peers
     pub fn get_alternative_blocks(&self) -> &Vec<Block> {
         &self.alternative_blocks
     }
 
+    /// Adds a new block to the main chain
+    ///
+    /// The block must satisfy the blockchain database's preliminary checks (another block doesn't
+    /// exist at the given height already, all transactions in the block don't exist already, must
+    /// connect to the current chain's tail) and further it must have a valid proof-of-work (as
+    /// determined by the coin)
+    ///
+    /// # Returns
+    /// An empty tuple if the block was added successfully
+    ///
+    /// # Errors
+    /// If any of the pre-checks fail
     pub fn add_new_block(&mut self, block: Block) -> Result<()> {
         self.blockchain_db.check(&block)?;
         self.blockchain_db.add_block(block.clone(), Vec::new())?;
@@ -73,18 +94,13 @@ impl Blockchain {
         Ok(())
     }
 
-    // Other
-    pub fn get_short_chain_history() -> Vec<Hash256> {
-        unimplemented!()
-    }
-
-    pub fn find_blockchain_supplement(_short_history: Vec<Hash256>) -> Result<Vec<Hash256>> {
-        unimplemented!()
-    }
-
-    // pub fn have_tx(&self, id: &Hash256) -> bool { self.blockchain_db.get_transaction(id).is_some() }
-    // pub fn is_keyimage_spent(&self, key_image: &KeyImage) -> bool { self.blockchain_db.has_key_image(key_image) }
+    /// Gets a block from the blockchain
     pub fn get_block(&self, id: &Hash256) -> Option<Block> { self.blockchain_db.get_block_by_hash(id) }
+
+    /// Gets the main chain's tail
+    ///
+    /// # Returns
+    /// A `(block height, Block)` tuple
     pub fn get_tail(&self) -> Result<(u64, Block)> { self.blockchain_db.get_tail() }
 }
 
