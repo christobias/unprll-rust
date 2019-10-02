@@ -32,12 +32,26 @@ extern crate byteorder;
 extern crate serde;
 
 mod config;
+mod de;
 mod error;
 mod internal;
 mod ser;
 
 pub use config::Config;
+pub use de::read::{BincodeRead, IoReader, SliceReader};
 pub use error::{Error, ErrorKind, Result};
+
+/// An object that implements this trait can be passed a
+/// serde::Deserializer without knowing its concrete type.
+///
+/// This trait should be used only for `with_deserializer` functions.
+#[doc(hidden)]
+pub trait DeserializerAcceptor<'a> {
+    /// The return type for the accept method
+    type Output;
+    /// Accept a serde::Deserializer and do whatever you want with it.
+    fn accept<T: serde::Deserializer<'a>>(self, T) -> Self::Output;
+}
 
 /// An object that implements this trait can be passed a
 /// serde::Serializer without knowing its concrete type.
@@ -83,12 +97,67 @@ where
     config().serialize(value)
 }
 
+/// Deserializes an object directly from a `Read`er using the default configuration.
+///
+/// If this returns an `Error`, `reader` may be in an invalid state.
+pub fn deserialize_from<R, T>(reader: R) -> Result<T>
+where
+    R: std::io::Read,
+    T: serde::de::DeserializeOwned,
+{
+    config().deserialize_from(reader)
+}
+
+/// Deserializes an object from a custom `BincodeRead`er using the default configuration.
+/// It is highly recommended to use `deserialize_from` unless you need to implement
+/// `BincodeRead` for performance reasons.
+///
+/// If this returns an `Error`, `reader` may be in an invalid state.
+pub fn deserialize_from_custom<'a, R, T>(reader: R) -> Result<T>
+where
+    R: de::read::BincodeRead<'a>,
+    T: serde::de::DeserializeOwned,
+{
+    config().deserialize_from_custom(reader)
+}
+
+/// Only use this if you know what you're doing.
+///
+/// This is part of the public API.
+#[doc(hidden)]
+pub fn deserialize_in_place<'a, R, T>(reader: R, place: &mut T) -> Result<()>
+where
+    T: serde::de::Deserialize<'a>,
+    R: BincodeRead<'a>,
+{
+    config().deserialize_in_place(reader, place)
+}
+
+/// Deserializes a slice of bytes into an instance of `T` using the default configuration.
+pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T>
+where
+    T: serde::de::Deserialize<'a>,
+{
+    config().deserialize(bytes)
+}
+
 /// Returns the size that an object would be if serialized using Bincode with the default configuration.
 pub fn serialized_size<T: ?Sized>(value: &T) -> Result<u64>
 where
     T: serde::Serialize,
 {
     config().serialized_size(value)
+}
+
+/// Executes the acceptor with a serde::Deserializer instance.
+/// NOT A PART OF THE STABLE PUBLIC API
+#[doc(hidden)]
+pub fn with_deserializer<'a, A, R>(reader: R, acceptor: A) -> A::Output
+where
+    A: DeserializerAcceptor<'a>,
+    R: BincodeRead<'a>,
+{
+    config().with_deserializer(reader, acceptor)
 }
 
 /// Executes the acceptor with a serde::Serializer instance.

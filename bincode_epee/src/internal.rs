@@ -1,7 +1,9 @@
 use serde;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::marker::PhantomData;
 
 use config::{Options, OptionsExt};
+use de::read::BincodeRead;
 use {ErrorKind, Result};
 
 #[derive(Clone)]
@@ -69,6 +71,76 @@ where
 
     let result = value.serialize(&mut size_counter);
     result.map(|_| size_counter.options.new_limit.total)
+}
+
+pub(crate) fn deserialize_from<R, T, O>(reader: R, options: O) -> Result<T>
+where
+    R: Read,
+    T: serde::de::DeserializeOwned,
+    O: Options,
+{
+    deserialize_from_seed(PhantomData, reader, options)
+}
+
+pub(crate) fn deserialize_from_seed<'a, R, T, O>(seed: T, reader: R, options: O) -> Result<T::Value>
+where
+    R: Read,
+    T: serde::de::DeserializeSeed<'a>,
+    O: Options,
+{
+    let reader = ::de::read::IoReader::new(reader);
+    deserialize_from_custom_seed(seed, reader, options)
+}
+
+pub(crate) fn deserialize_from_custom<'a, R, T, O>(reader: R, options: O) -> Result<T>
+where
+    R: BincodeRead<'a>,
+    T: serde::de::DeserializeOwned,
+    O: Options,
+{
+    deserialize_from_custom_seed(PhantomData, reader, options)
+}
+
+pub(crate) fn deserialize_from_custom_seed<'a, R, T, O>(
+    seed: T,
+    reader: R,
+    options: O,
+) -> Result<T::Value>
+where
+    R: BincodeRead<'a>,
+    T: serde::de::DeserializeSeed<'a>,
+    O: Options,
+{
+    let mut deserializer = ::de::Deserializer::<_, O>::new(reader, options);
+    seed.deserialize(&mut deserializer)
+}
+
+pub(crate) fn deserialize_in_place<'a, R, T, O>(reader: R, options: O, place: &mut T) -> Result<()>
+where
+    R: BincodeRead<'a>,
+    T: serde::de::Deserialize<'a>,
+    O: Options,
+{
+    let mut deserializer = ::de::Deserializer::<_, _>::new(reader, options);
+    serde::Deserialize::deserialize_in_place(&mut deserializer, place)
+}
+
+pub(crate) fn deserialize<'a, T, O>(bytes: &'a [u8], options: O) -> Result<T>
+where
+    T: serde::de::Deserialize<'a>,
+    O: Options,
+{
+    deserialize_seed(PhantomData, bytes, options)
+}
+
+pub(crate) fn deserialize_seed<'a, T, O>(seed: T, bytes: &'a [u8], options: O) -> Result<T::Value>
+where
+    T: serde::de::DeserializeSeed<'a>,
+    O: Options,
+{
+    let reader = ::de::read::SliceReader::new(bytes);
+    let options = ::config::WithOtherLimit::new(options, Infinite);
+    deserialize_from_custom_seed(seed, reader, options)
 }
 
 pub(crate) trait SizeLimit: Clone {

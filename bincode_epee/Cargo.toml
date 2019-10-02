@@ -1,15 +1,11 @@
 [package]
 name = "bincode_epee"
-version = "1.1.4" # remember to update html_root_url
+version = "1.2.0" # remember to update html_root_url
 authors = ["Ty Overby <ty@pre-alpha.com>", "Francesco Mazzoli <f@mazzo.li>", "David Tolnay <dtolnay@gmail.com>", "Daniel Griffen"]
-exclude = ["logo.png"]
-
-publish =  true
 
 readme = "./readme.md"
 categories = ["encoding", "network-programming"]
 keywords = ["binary", "encode", "decode", "serialize", "deserialize", "epee"]
-# build = "build.rs"
 
 license = "MIT"
 description = "bincode with support for serialization into the epee format used in Monero"
@@ -26,7 +22,3 @@ serde_derive = "1.0.27"
 autocfg = "0.1.2"
 
 [features]
-# This feature is no longer used and is DEPRECATED. This crate now
-# automatically enables i128 support for Rust compilers that support it. The
-# feature will be removed if and when a new major version is released.
-i128 = []
