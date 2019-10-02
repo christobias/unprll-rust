@@ -20,6 +20,7 @@ pub use checkpoints::Checkpoints;
 pub use transaction::{
     Transaction,
     TransactionPrefix,
+    TXExtra,
     TXIn,
     TXOut,
     TXOutTarget

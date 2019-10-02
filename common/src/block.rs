@@ -11,6 +11,7 @@ use crate::{
     GetHash,
     Transaction,
     TransactionPrefix,
+    TXExtra,
     TXIn,
     TXOut,
     TXOutTarget
@@ -51,7 +52,9 @@ impl Block {
             },
             miner_tx: Transaction {
                 prefix: TransactionPrefix {
-                    extra: hex::decode("017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1").unwrap(),
+                    extra: vec!{
+                        TXExtra::TxPublicKey(PublicKey::from_slice(&hex::decode("7767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1").unwrap()))
+                    },
                     inputs: vec![
                         TXIn::Gen {
                             height: 0
@@ -154,6 +157,7 @@ mod tests {
     #[test]
     fn genesis_has_the_right_id() {
         let block = Block::genesis();
+        println!("{}", &hex::encode(block.miner_tx.get_hash_blob()));
         assert_eq!(
             hex::encode(block.get_hash().data()),
             "7d491759c7534ca5a8be62ec7fa34dc939659f5afd4b4f1da2c671a84773cedc"

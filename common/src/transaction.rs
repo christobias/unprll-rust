@@ -9,13 +9,6 @@ use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
 use crate::GetHash;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum TXOutTarget {
-    ToKey {
-        key: PublicKey
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXIn {
     Gen {
         height: u64
@@ -28,9 +21,21 @@ pub enum TXIn {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum TXOutTarget {
+    ToKey {
+        key: PublicKey
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TXOut {
     pub amount: u64,
     pub target: TXOutTarget
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum TXExtra {
+    TxPublicKey(PublicKey)
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -39,7 +44,7 @@ pub struct TransactionPrefix {
     pub unlock_delta: u16,
     pub inputs: Vec<TXIn>,
     pub outputs: Vec<TXOut>,
-    pub extra: Vec<u8>
+    pub extra: Vec<TXExtra>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -93,7 +98,19 @@ impl GetHash for Transaction {
         }
 
         // Extra
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.extra).unwrap());
+        let mut extra_buf = Vec::new();
+        for extra in &self.prefix.extra {
+            match extra {
+                TXExtra::TxPublicKey(key) => {
+                    // Enum tag
+                    extra_buf.extend_from_slice(&bincode_epee::serialize(&0x01).unwrap());
+
+                    // Public Key
+                    extra_buf.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap());
+                }
+            }
+        }
+        vec.extend_from_slice(&bincode_epee::serialize(&extra_buf).unwrap());
 
         // Signatures
         if !self.signatures.is_empty() {
