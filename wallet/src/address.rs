@@ -9,6 +9,7 @@ use serde::{
 };
 
 use crypto::{
+    Hash256Data,
     PublicKey
 };
 
@@ -84,8 +85,11 @@ impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
         };
         address.extend_from_slice(&bincode_epee::serialize(&tag).unwrap());
 
-        // Spend and view public keys
-        address.extend_from_slice(&bincode_epee::serialize(&self).unwrap());
+        // Spend public key
+        address.extend_from_slice(&bincode_epee::serialize(Hash256Data::from_slice(&self.spend_public_key.to_bytes())).unwrap());
+
+        // View public key
+        address.extend_from_slice(&bincode_epee::serialize(Hash256Data::from_slice(&self.view_public_key.to_bytes())).unwrap());
 
         // Base58
         base58_monero::encode_check(&address).unwrap()
@@ -109,21 +113,18 @@ impl<TPrefix: AddressPrefixConfig> TryFrom<&str> for Address<TPrefix> {
             }
         }
 
-        // HACK: Since bincode_epee is meant to be a one-way encoder to Monero's serialization,
-        //       this code just slices the correct portions of the address data to get the spend
-        //       and view public keys. Doable for small structs like this one, but for larger
-        //       structs we'll need proper deserialization.
+        // TODO: While we have deserialization support in bincode_epee now, PublicKey is
+        //       serialized with its length, so we need to continue manual deserialization for now
         let spend_public_key = PublicKey::from_slice(&data[(tag_end     )..(tag_end + 32)]);
         let view_public_key  = PublicKey::from_slice(&data[(tag_end + 32)..(tag_end + 64)]);
 
-        // TODO: Implement bincode_epee deserialization to fix this monstrosity
-        let tag = &data[0..tag_end];
+        let tag: u64 = bincode_epee::deserialize(&data[0..tag_end]).unwrap();
 
-        if tag == bincode_epee::serialize(&TPrefix::STANDARD).unwrap().as_slice() {
+        if tag == TPrefix::STANDARD {
             Ok(Address::standard(spend_public_key, view_public_key))
-        } else if tag == bincode_epee::serialize(&TPrefix::SUBADDRESS).unwrap().as_slice() {
+        } else if tag == TPrefix::SUBADDRESS {
             Ok(Address::subaddress(spend_public_key, view_public_key))
-        } else if tag == bincode_epee::serialize(&TPrefix::INTEGRATED).unwrap().as_slice() {
+        } else if tag == TPrefix::INTEGRATED {
             Ok(Address::integrated(spend_public_key, view_public_key, crypto::Hash256::null_hash()))
         } else {
             Err(failure::format_err!("Invalid address prefix"))

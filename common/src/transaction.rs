@@ -52,7 +52,50 @@ pub struct Transaction {
 impl GetHash for Transaction {
     fn get_hash_blob(&self) -> Vec<u8> {
         let mut vec = Vec::with_capacity(std::mem::size_of_val(&self));
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix).unwrap());
+
+        // Tx version
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.version).unwrap());
+
+        // Unlock delta
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.unlock_delta).unwrap());
+
+        // Inputs
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.inputs.len()).unwrap());
+        for input in &self.prefix.inputs {
+            match input {
+                TXIn::Gen { height } => {
+                    // Enum tag
+                    vec.extend_from_slice(&bincode_epee::serialize(&0xffu8).unwrap());
+
+                    // Input
+                    vec.extend_from_slice(&bincode_epee::serialize(height).unwrap());
+                },
+                _ => unimplemented!()
+            }
+        }
+
+        // Outputs
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.outputs.len()).unwrap());
+        for output in &self.prefix.outputs {
+            // Amount
+            vec.extend_from_slice(&bincode_epee::serialize(&output.amount).unwrap());
+
+            // Target
+            match output.target {
+                TXOutTarget::ToKey { key } => {
+                    // Enum tag
+                    vec.extend_from_slice(&bincode_epee::serialize(&0x02).unwrap());
+
+                    // Public Key
+                    vec.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap());
+                }
+            }
+        }
+
+        // Extra
+        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.extra).unwrap());
+
+        // Signatures
         if !self.signatures.is_empty() {
             vec.extend_from_slice(&bincode_epee::serialize(&self.signatures).unwrap());
         }

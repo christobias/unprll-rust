@@ -2,7 +2,11 @@ use std::convert::TryFrom;
 
 use serde::{Serialize, Deserialize};
 
-use crypto::{Hash256, PublicKey};
+use crypto::{
+    Hash256,
+    Hash256Data,
+    PublicKey
+};
 use crate::{
     GetHash,
     Transaction,
@@ -69,18 +73,32 @@ impl Block {
             tx_hashes: Vec::new()
         }
     }
+
+    /// Gets the "mining blob" for a given block
+    ///
+    /// It is used to generate the proof-of-work and thus doesn't serialize a few fields (notably
+    /// those used for the proof-of-work)
     pub fn get_mining_blob(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of_val(&self));
+
+        // Major and minor versions
         blob.extend_from_slice(&bincode_epee::serialize(&self.header.major_version).unwrap());
         blob.extend_from_slice(&bincode_epee::serialize(&self.header.minor_version).unwrap());
 
+        // Rounded timestamp
         let mut timestamp = self.header.timestamp;
         timestamp = timestamp - (timestamp % 600) + 300;
-
         blob.extend_from_slice(&bincode_epee::serialize(&timestamp).unwrap());
-        blob.extend_from_slice(&bincode_epee::serialize(&self.header.prev_id).unwrap());
-        blob.extend_from_slice(&bincode_epee::serialize(&self.header.miner_specific).unwrap());
 
+        // Previous block ID
+        blob.extend_from_slice(&bincode_epee::serialize(&self.header.prev_id).unwrap());
+
+        // Custom serialization for miner specific
+        for byte in self.header.miner_specific.as_bytes() {
+            blob.extend_from_slice(&bincode_epee::serialize(&byte).unwrap());
+        }
+
+        // Transaction root hash
         if !self.tx_hashes.is_empty() {
             let tx_hashes = self.tx_hashes.clone();
             blob.extend_from_slice(crypto::tree_hash(&tx_hashes).data());
@@ -88,6 +106,7 @@ impl Block {
             blob.extend_from_slice(Hash256::null_hash().data());
         }
 
+        // # of transactions
         blob.extend_from_slice(&bincode_epee::serialize(&self.tx_hashes.len()).unwrap());
 
         blob
@@ -97,8 +116,23 @@ impl Block {
 impl GetHash for Block {
     fn get_hash_blob(&self) -> Vec<u8> {
         let mut vec = Vec::with_capacity(std::mem::size_of_val(self));
-        // Serialize the header
-        vec.extend_from_slice(&bincode_epee::serialize(&self.header).unwrap());
+
+        // Major and minor versions
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.major_version).unwrap());
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.minor_version).unwrap());
+
+        // Timestamp
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.timestamp).unwrap());
+
+        // Previous block ID
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.prev_id).unwrap());
+
+        // Miner specific
+        vec.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(self.header.miner_specific.to_bytes())).unwrap());
+
+        // Proof of Work
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.iterations).unwrap());
+        vec.extend_from_slice(&bincode_epee::serialize(&self.header.hash_checkpoints).unwrap());
 
         // Get and serialize the tree hash of the block (including the miner transaction)
         let mut hashes = vec!{self.miner_tx.get_hash()};
@@ -110,5 +144,19 @@ impl GetHash for Block {
 
         // Prepend the length of the blob
         bincode_epee::serialize(&vec).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn genesis_has_the_right_id() {
+        let block = Block::genesis();
+        assert_eq!(
+            hex::encode(block.get_hash().data()),
+            "7d491759c7534ca5a8be62ec7fa34dc939659f5afd4b4f1da2c671a84773cedc"
+        );
     }
 }
