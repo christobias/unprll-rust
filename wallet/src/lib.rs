@@ -1,5 +1,7 @@
 use std::convert::From;
 
+use byteorder::ByteOrder;
+
 use crypto::{
     CNFastHash,
     Digest,
@@ -41,14 +43,28 @@ where
         Self::from_secret_keys(spend_secret_key, view_secret_key)
     }
 
-    pub fn get_address_for_index(&self, major: u64, minor: u64) -> Option<Address<TCoinConfig>> {
+    pub fn get_address_for_index(&self, major: u32, minor: u32) -> Option<Address<TCoinConfig>> {
         if major == 0 && minor == 0 {
             Some(Address::standard(self.spend_keypair.public_key, self.view_keypair.public_key))
         } else {
-            // TODO: Implement subaddresses
-            None
+            // Subaddress secret key
+            let subaddress_secret_key = self.get_subaddress_secret_key(major, minor);
+            let subaddress_public_key = subaddress_secret_key * crypto::ecc::BASEPOINT;
+
+            // Subaddress spend public key
+            let spend_public_key = self.spend_keypair.public_key.decompress().unwrap() + subaddress_public_key;
+
+            // Subaddress view public key
+            let view_public_key = self.view_keypair.secret_key * spend_public_key;
+
+            // Compress public keys
+            let spend_public_key = spend_public_key.compress();
+            let view_public_key = view_public_key.compress();
+
+            Some(Address::subaddress(spend_public_key, view_public_key))
         }
     }
+
 
     pub fn spend_keypair(&self) -> &KeyPair {
         &self.spend_keypair
@@ -100,4 +116,28 @@ mod tests {
             "8b66a0e272063786cc769c295486552e39797c57243612047bff9845c8cc66c8"
         );
     }
+
+    #[test]
+    fn it_generates_subaddress_keys_correctly() {
+        // This given key is in public view, hence DO NOT use this wallet for storing any coins
+        let wallet: Wallet<TestPrefixes> = Wallet::from(SecretKey::from_slice(&hex::decode("67a2547fde618d6fbd4d450b28da58feb6836cf223c2f97980731448bb84c100").unwrap()));
+
+        [
+            ((0, 1), "UNPStRsRsLKPPysVGYVe9fSHqxbAn4sN1RaRGVhGb4G5gpmt9JUzNhLaXndsFRUN3nGa6kzk7cViJBgAuB1dtBtjDKsTvY66vCL"),
+            ((0, 2), "UNPStUCnafD3MwXfvYN2zCWfWFydyFyZxj89iLW481b8XcSdSV23Arz43ubi1UbBk6W2WNkCM3ysM1Ub2r8AQhAsCetDffLd6JK"),
+            ((1, 0), "UNPStSrKaX54x6MPDmBtmTRE1bX7tZx3sYWGk877crypJ9KXT7qvcwpZDjtBioKwRz9CxBdZvZnob9CQ1K3QfvT6h1Jd81AdrjS"),
+            ((1, 1), "UNPStUWbghuSyjDVJZvo3Y7MsYbk95JpVAUv9L72Wbh1HgVcqCgLxfhZaNHSwjcH42etkx1dnYYVb7jBXoER8J2ESHUbGQUTiWD"),
+            ((2, 0), "UNPStRn7PHE6Qbx7QSThUeMzgKhuQXCN8VT9FUa2NqenBBgVfohskSLN739JU4tmHa5jUAgHD5JYYFh6wxNX2EbwPXeRwAa2XKR"),
+            ((2, 1), "UNPStTzhL7Zc7Z7q4X5ZYxBEkpKmNJT6ojSAfcQ7jipq4HGvHMaQJPAg3BTt8PU4J16vvuPqnJzW28HfCuzJzpnHhbxKx7v9VKU")
+        ].iter().map(|((major, minor), address_str)| -> (String, String) {
+            (wallet.get_address_for_index(*major, *minor).unwrap().into(), address_str.to_string())
+        }).for_each(|(computed_address, expected_address)| {
+            // Should be equal to what it is on mainnet
+            assert_eq!(
+                computed_address,
+                expected_address
+            );
+        });
+    }
+
 }

@@ -20,11 +20,11 @@ pub struct LoadWalletRequest {
 #[derive(Default, Serialize, Deserialize)]
 pub struct GetAddressRequest {
     pub wallet_name: String,
-    pub account_index: u64,
-    pub address_indices: Option<Vec<u64>>
+    pub account_index: u32,
+    pub address_indices: Option<Vec<u32>>
 }
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct GetAddressResponse {
-    pub addresses: HashMap<u64, String>
+    pub addresses: HashMap<u32, String>
 }
