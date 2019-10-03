@@ -25,7 +25,7 @@ impl WalletStore {
         self.wallets.insert(wallet_name, wallet);
         Ok(())
     }
-    pub fn get_wallet(&self, wallet_name: &String) -> Result<&Wallet<Unprll>, Error> {
-        self.wallets.get(wallet_name).ok_or(format_err!("Wallet {} not found", wallet_name))
+    pub fn get_wallet(&self, wallet_name: &str) -> Result<&Wallet<Unprll>, Error> {
+        self.wallets.get(wallet_name).ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
     }
 }

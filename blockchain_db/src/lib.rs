@@ -115,8 +115,7 @@ impl PreliminaryChecks<Block> for BlockchainDB {
         //                    - or -
         //    This block's height is 0 and connects to null
         let tail = self.db.get_tail();
-        if tail.is_ok() {
-            let (_, tail_block) = tail.unwrap();
+        if let Ok((_, tail_block)) = tail {
             if tail_block.get_hash() != block.header.prev_id {
                 return Err(format_err!("Block with ID {} does not connect to our chain (Our chain tail: {}, block's previous ID: {})", block_id, tail_block.get_hash(), block.header.prev_id));
             }
