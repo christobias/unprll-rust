@@ -14,28 +14,26 @@ use serde::{Serialize, Deserialize};
 pub type Hash256Data = generic_array::GenericArray<u8, generic_array::typenum::U32>;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct Hash256 {
-    data: Hash256Data
-}
+pub struct Hash256(Hash256Data);
 
 impl Hash256 {
     pub fn null_hash() -> Self {
         Hash256::from(Hash256Data::from([0; 32]))
     }
     pub fn data(&self) -> &Hash256Data {
-        &self.data
+        &self.0
     }
 }
 
 impl Display for Hash256 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(self.data))
+        write!(f, "{}", hex::encode(self.0))
     }
 }
 
 impl From<Hash256Data> for Hash256 {
     fn from(data: Hash256Data) -> Self {
-        Hash256 { data }
+        Hash256(data)
     }
 }
 
@@ -45,9 +43,7 @@ impl TryFrom<&str> for Hash256 {
         if data.len() != 64 {
             return Err(hex::FromHexError::InvalidStringLength)
         }
-        Ok(Hash256 {
-            data: Hash256Data::clone_from_slice(&hex::decode(data)?)
-        })
+        Ok(Hash256(Hash256Data::clone_from_slice(&hex::decode(data)?)))
     }
 }
 
