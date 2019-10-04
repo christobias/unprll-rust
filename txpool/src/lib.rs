@@ -5,6 +5,7 @@ use crypto::Hash256;
 
 type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Default)]
 pub struct TXPool {
 }
 
