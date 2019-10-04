@@ -4,6 +4,10 @@ use curve25519_dalek::{
     scalar::Scalar
 };
 use rand;
+use serde::{
+    Serialize,
+    Deserialize
+};
 
 pub type SecretKey = Scalar;
 pub type PublicKey = CompressedEdwardsY;
@@ -25,6 +29,7 @@ pub trait ScalarExt {
 
 impl ScalarExt for Scalar { }
 
+#[derive(Serialize, Deserialize)]
 pub struct KeyPair {
     pub secret_key: SecretKey,
     pub public_key: PublicKey

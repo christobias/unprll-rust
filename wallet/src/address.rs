@@ -19,7 +19,7 @@ pub trait AddressPrefixConfig {
     const INTEGRATED: u64;
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub enum AddressType {
     Standard,
     SubAddress,
@@ -32,7 +32,7 @@ impl Default for AddressType {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Address<TPrefix: AddressPrefixConfig> {
     #[serde(skip)]
     pub address_type: AddressType,
@@ -73,7 +73,7 @@ impl<TPrefix: AddressPrefixConfig> Address<TPrefix> {
 }
 
 /// Get the string representation of an address
-impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
+impl<TPrefix: AddressPrefixConfig> Into<String> for &Address<TPrefix> {
     fn into(self) -> String {
         let mut address = Vec::new();
 
@@ -95,6 +95,14 @@ impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
         base58_monero::encode_check(&address).unwrap()
     }
 }
+
+impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
+    fn into(self) -> String {
+        let reference = &self;
+        reference.into()
+    }
+}
+
 
 /// Get an Address from its string representation
 impl<TPrefix: AddressPrefixConfig> TryFrom<&str> for Address<TPrefix> {

@@ -11,7 +11,10 @@ use jsonrpc_v2::{
 };
 
 use crypto::KeyPair;
-use wallet::Wallet;
+use wallet::{
+    SubAddressIndex,
+    Wallet
+};
 
 use crate::{
     api_definitions::*,
@@ -54,7 +57,7 @@ fn get_address(Params(params): Params<GetAddressRequest>, state: State<WalletSto
 
     for index in minor_indices {
         let wallet = wallet_store.get_wallet(&params.wallet_name)?;
-        let address = wallet.get_address_for_index(major_index, index)
+        let address = wallet.get_address_for_index(&SubAddressIndex(major_index, index))
             .ok_or_else(|| failure::format_err!("Address at index {} not found", index))?;
 
         response.addresses.insert(
