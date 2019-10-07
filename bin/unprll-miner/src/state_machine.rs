@@ -16,6 +16,7 @@ use log::{
 };
 use tokio::timer::Interval;
 
+use async_jsonrpc_client::Error;
 use crypto::Hash256;
 use rpc::api_definitions::*;
 
@@ -25,9 +26,9 @@ use crate::network::Network;
 
 enum MinerState {
     Idle,
-    RequestingStats(Box<dyn Future<Item = Stats, Error = reqwest::Error> + Send>),
+    RequestingStats(Box<dyn Future<Item = Stats, Error = Error> + Send>),
     Mining,
-    SubmittingBlock(Box<dyn Future<Item = (), Error = reqwest::Error> + Send>),
+    SubmittingBlock(Box<dyn Future<Item = (), Error = Error> + Send>),
 }
 
 pub struct MinerStateMachine {
