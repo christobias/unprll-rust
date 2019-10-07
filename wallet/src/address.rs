@@ -142,16 +142,8 @@ impl<TPrefix: AddressPrefixConfig> TryFrom<&str> for Address<TPrefix> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_definitions::TestCoin;
     use super::*;
-
-    // TODO: Deduplicate this for a common setup
-    struct TestPrefixes;
-
-    impl AddressPrefixConfig for TestPrefixes {
-        const STANDARD:   u64 = 0x0014_5023; // UNP
-        const SUBADDRESS: u64 = 0x0021_1023; // UNPS
-        const INTEGRATED: u64 = 0x0029_1023; // UNPi
-    }
 
     #[test]
     fn it_encodes_addresses_properly() {
@@ -159,7 +151,7 @@ mod tests {
         let spend_public_key = PublicKey::from_slice(&hex::decode("1ed50fe76f3fcd23c16493f8802b04f1c77eace5a54f969cc03dfa5cd3149457").unwrap());
         let view_public_key =  PublicKey::from_slice(&hex::decode("36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0").unwrap());
 
-        let address: Address<TestPrefixes> = Address::standard(spend_public_key, view_public_key);
+        let address: Address<TestCoin> = Address::standard(spend_public_key, view_public_key);
         let address: String = address.into();
 
         assert_eq!(
@@ -171,7 +163,7 @@ mod tests {
     #[test]
     fn it_decodes_standard_string_addresses_properly() {
         // Unprll Donation address
-        let address: Address<TestPrefixes> = Address::try_from("UNP1Yn4gC4EBfxGByWr4CX8CLnvLRm3ZWEK7BEeiuwYe4SeVpqbRMZxKACWXQ1WCw3P2Zpt68rHZ94sehkF5o8Wn7NAC1PoBzh").unwrap();
+        let address: Address<TestCoin> = Address::try_from("UNP1Yn4gC4EBfxGByWr4CX8CLnvLRm3ZWEK7BEeiuwYe4SeVpqbRMZxKACWXQ1WCw3P2Zpt68rHZ94sehkF5o8Wn7NAC1PoBzh").unwrap();
 
         // Address type
         assert_eq!(
@@ -195,7 +187,7 @@ mod tests {
     #[test]
     fn it_decodes_subaddress_string_addresses_properly() {
         // Unprll Donation wallet subaddress
-        let address: Address<TestPrefixes> = Address::try_from("UNPStVLMoCzdHGE7EeVNuuWeReeJQXDeEWtRfaCQJ7oJSMr4bYVpreqcP36SjwiCHF86z9bbQecaqcW6yH5ndWx2M6t69dcEoE2").unwrap();
+        let address: Address<TestCoin> = Address::try_from("UNPStVLMoCzdHGE7EeVNuuWeReeJQXDeEWtRfaCQJ7oJSMr4bYVpreqcP36SjwiCHF86z9bbQecaqcW6yH5ndWx2M6t69dcEoE2").unwrap();
 
         // Address type
         assert_eq!(
