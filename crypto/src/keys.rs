@@ -9,8 +9,14 @@ use serde::{
     Deserialize
 };
 
+/// An unsigned 256-bit value used as a private key. Represented with lowercase letters
 pub type SecretKey = Scalar;
+
+/// A point on the elliptic curve. Usually determined by multiplication of a scalar to the curve
+/// basepoint
 pub type PublicKey = CompressedEdwardsY;
+
+/// Type alias specific to Cryptonote
 pub type KeyImage = PublicKey;
 
 /// Helper Extension Trait for Scalar
@@ -29,13 +35,17 @@ pub trait ScalarExt {
 
 impl ScalarExt for Scalar { }
 
+/// A pair of a given secret key and its corresponding public key
 #[derive(Serialize, Deserialize)]
 pub struct KeyPair {
+    /// The secret key
     pub secret_key: SecretKey,
+    /// The public key
     pub public_key: PublicKey
 }
 
 impl KeyPair {
+    /// Generates a random keypair using the OS CSPRNG
     pub fn generate() -> Self {
         let mut rng = rand::rngs::OsRng::new().unwrap();
         let secret_key = Scalar::random(&mut rng);

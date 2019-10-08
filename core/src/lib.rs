@@ -1,3 +1,6 @@
+#![deny(missing_docs)]
+//! Core module to bind all components of a Cryptonote coin
+
 use blockchain::Blockchain;
 use txpool::TXPool;
 
@@ -14,6 +17,7 @@ pub struct CryptonoteCore {
 }
 
 impl CryptonoteCore {
+    /// Creates a new CryptonoteCore with the given configuration
     pub fn new(config: &Config) -> Self {
         let blockchain = Blockchain::new(&config.blockchain_config).expect("Failed to initialize Blockchain");
         let txpool     = TXPool::new();
@@ -22,12 +26,15 @@ impl CryptonoteCore {
             txpool
         }
     }
+    /// Get a reference to the underlying blockchain
     pub fn blockchain(&self) -> &Blockchain {
         &self.blockchain
     }
+    /// Get a mutable reference to the underlying blockchain
     pub fn blockchain_mut(&mut self) -> &mut Blockchain {
         &mut self.blockchain
     }
+    /// Get a reference to the transaction mempool
     pub fn txpool(&self) -> &TXPool {
         &self.txpool
     }

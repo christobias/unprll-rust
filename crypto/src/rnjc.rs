@@ -55,6 +55,7 @@ fn apply_hash(data: &[u8], n: u8) -> Hash256Data {
     }
 }
 
+/// The RNJC hash function
 pub struct RNJC {
     data_buffer: Vec<u8>
 }

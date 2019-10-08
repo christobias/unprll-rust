@@ -17,25 +17,49 @@ use crate::{
     TXOutTarget
 };
 
+/// Block Header
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
+    /// Current version of the network
     pub major_version: u8,
+
+    /// Version of the network that miners are voting for with PoW
     pub minor_version: u8,
+
+    /// Fuzzed timestamp of creation of this block
     pub timestamp: u64,
+
+    /// Previous block's ID
     pub prev_id: Hash256,
+
+    // Unprll specific
+    // TODO: Move these to coin_specific
+
+    /// Miner's public spend key for usage in PoW verification
     pub miner_specific: PublicKey,
+
+    /// Number of iterations of the hash function used in the PoW
     pub iterations: u32,
+
+    /// Checkpoint hashes in the PoW
     pub hash_checkpoints: Vec<Hash256>
 }
 
+/// Block
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Block {
+    /// This block's header
     pub header: BlockHeader,
+
+    /// Coinbase transaction paying the miner
     pub miner_tx: Transaction,
+
+    /// List of transactions confirmed by this block
     pub tx_hashes: Vec<Hash256>
 }
 
 impl Block {
+    /// Creates the genesis block
     pub fn genesis() -> Block {
         Block {
             header: BlockHeader {
@@ -79,7 +103,7 @@ impl Block {
 
     /// Gets the "mining blob" for a given block
     ///
-    /// It is used to generate the proof-of-work and thus doesn't serialize a few fields (notably
+    /// Used to generate the proof-of-work and thus doesn't serialize a few fields (notably
     /// those used for the proof-of-work)
     pub fn get_mining_blob(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of_val(&self));

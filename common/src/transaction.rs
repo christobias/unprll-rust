@@ -8,48 +8,74 @@ use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
 
 use crate::GetHash;
 
+/// Transaction input
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXIn {
+    /// Coinbase (genesis) input. Creates new coins
     Gen {
+        /// Block height of this transaction. Signifies chain height
         height: u64
     },
+    /// Coins from an existing "ToKey" output
     FromKey {
+        /// Amount of coins sent (0 for RingCT outputs)
         amount: u64,
+        /// Relative offsets of each output in the ring
         key_offsets: Vec<u64>,
+        /// Key image of the sender's output
         key_image: KeyImage
     }
 }
 
+/// Transaction output target
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXOutTarget {
+    /// Send to specified public key
     ToKey {
+        /// Target public key
         key: PublicKey
     }
 }
 
+/// Transaction output
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TXOut {
+    /// Amount of coins received (0 for RingCT)
     pub amount: u64,
+    /// Transaction output target
     pub target: TXOutTarget
 }
 
+/// Extra information added to the transaction
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXExtra {
+    /// Public key of this transaction (for determining output secret key)
     TxPublicKey(PublicKey)
 }
 
+/// Transaction prefix
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TransactionPrefix {
+    /// This transaction's version
     pub version: usize,
+    /// How many block "deltas" this block is locked for
     pub unlock_delta: u16,
+    /// List of inputs to this transaction
     pub inputs: Vec<TXIn>,
+    /// List of outputs in this transaction
     pub outputs: Vec<TXOut>,
+    /// Extra information tagged to this transaction
     pub extra: Vec<TXExtra>
 }
 
+/// A complete Transaction
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
+    /// This transaction's prefix
     pub prefix: TransactionPrefix,
+    /// Signatures to prove ownership and authorize the transaction
+    ///
+    /// Usually empty for RingCT transactions
     pub signatures: Vec<Vec<Signature>>
     // rct_signatures
 }

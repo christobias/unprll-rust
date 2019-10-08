@@ -13,6 +13,7 @@ fn tree_hash_cnt(count: usize) -> usize {
     pow >> 1
 }
 
+/// Gets the Merkle root hash of a set of hashes
 pub fn tree_hash(hashes: &[Hash256]) -> Hash256 {
     assert!(!hashes.is_empty());
     match hashes.len() {

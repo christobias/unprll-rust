@@ -11,15 +11,19 @@ use digest::Digest;
 use sha3::Keccak256Full;
 use serde::{Serialize, Deserialize};
 
+/// Type alias for compatibility with the digest crate
 pub type Hash256Data = generic_array::GenericArray<u8, generic_array::typenum::U32>;
 
+/// Representation of 256-bit hash values
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Hash256(Hash256Data);
 
 impl Hash256 {
+    /// Gets a null hash (32 0-bytes)
     pub fn null_hash() -> Self {
         Hash256::from(Hash256Data::from([0; 32]))
     }
+    /// Gets a reference to the internal byte buffer
     pub fn data(&self) -> &Hash256Data {
         &self.0
     }
@@ -47,6 +51,7 @@ impl TryFrom<&str> for Hash256 {
     }
 }
 
+/// Alias of Keccak finalist to keep similarity with the C++ version
 pub struct CNFastHash {
     hasher: Keccak256Full
 }

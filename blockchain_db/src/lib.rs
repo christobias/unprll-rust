@@ -1,3 +1,6 @@
+#![deny(missing_docs)]
+//! Interfaces for communicating to the backing database of a blockchain
+
 #[macro_use] extern crate failure;
 
 use crypto::{
@@ -63,6 +66,7 @@ pub struct BlockchainDB {
 }
 
 impl BlockchainDB {
+    /// Creates a new BlockchainDB with the specified configuration
     pub fn new(config: &Config) -> Self {
         BlockchainDB {
             db: match config.db_type.as_ref() {
@@ -72,6 +76,13 @@ impl BlockchainDB {
         }
     }
 
+    /// Adds a new block to the chain
+    ///
+    /// The new block must satisfy the following prerequisites:
+    /// 1. The new block must connect to our current chain tail
+    /// 2. That block doesn't exist already
+    /// 3. All transactions in the block don't exist already
+    /// 4. All key images in the block don't exist already
     pub fn add_block(&mut self, block: Block, transactions: Vec<Transaction>) -> Result<()> {
         // Do preliminary checks
         self.check(&block)?;
@@ -93,8 +104,14 @@ impl BlockchainDB {
     }
 
     // Passthrough
+
+    /// Gets the block at the given height
     pub fn get_block_by_height(&self, height: u64) -> Option<Block> { self.db.get_block_by_height(height) }
+
+    /// Gets the block with the given hash
     pub fn get_block_by_hash(&self, hash: &Hash256) -> Option<Block> { self.db.get_block_by_hash(hash) }
+
+    /// Gets the current chain tail
     pub fn get_tail(&self) -> Result<(u64, Block)> { self.db.get_tail() }
 }
 
@@ -126,6 +143,8 @@ impl PreliminaryChecks<Block> for BlockchainDB {
         }
 
         // 2. We don't have that block already
+        // TODO: This might be redundant because having the same block would imply
+        //       it doesn't connect to the chain tail
         if self.db.get_block_by_hash(&block_id).is_some() {
             return Err(format_err!("Block with ID {} exists", block_id));
         }
