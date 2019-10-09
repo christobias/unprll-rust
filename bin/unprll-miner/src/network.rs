@@ -24,12 +24,14 @@ impl Network {
         })
     }
     pub fn get_stats(&self) -> impl Future<Item = Stats, Error = Error> {
-        self.client.send_jsonrpc_request("get_stats", &[]).map(|x| x.unwrap())
+        self.client.send_jsonrpc_request("get_stats", Value::Null).map(|x| x.unwrap())
     }
     pub fn submit_block(&self, block: Block) -> impl Future<Item = (), Error = Error> {
         self.client.send_jsonrpc_request::<()>(
             "submit_block",
-            &[Value::String(hex::encode(bincode::serialize(&block).unwrap()))]
+            Value::Array(vec!{
+                Value::String(hex::encode(bincode::serialize(&block).unwrap()))
+            })
         ).map(|_| ())
     }
 }

@@ -4,16 +4,16 @@ use serde::{
     Deserialize,
     Serialize
 };
-use serde_json::{
-    Value
-};
+use serde_json::Value;
+
+pub use serde_json;
 
 #[derive(Serialize)]
 struct JSONRPCRequest {
     jsonrpc: String,
     id: u64,
     method: String,
-    params: Vec<Value>
+    params: Value
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,12 +52,12 @@ impl JSONRPCClient {
             address: format!("http://{}", address)
         })
     }
-    pub fn send_jsonrpc_request<T: for<'de> Deserialize<'de>>(&self, method: &str, params: &[Value]) -> impl Future<Item = Option<T>, Error = failure::Error> {
+    pub fn send_jsonrpc_request<T: for<'de> Deserialize<'de>>(&self, method: &str, params: Value) -> impl Future<Item = Option<T>, Error = failure::Error> {
         self.client.post(&self.address)
             .json(&JSONRPCRequest {
                 jsonrpc: "2.0".to_string(),
                 method: method.to_string(),
-                params: params.to_vec(),
+                params,
                 id: 1
             })
             .send()
