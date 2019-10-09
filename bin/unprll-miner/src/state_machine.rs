@@ -26,7 +26,7 @@ use crate::network::Network;
 
 enum MinerState {
     Idle,
-    RequestingStats(Box<dyn Future<Item = Stats, Error = Error> + Send>),
+    RequestingStats(Box<dyn Future<Item = GetStatsResponse, Error = Error> + Send>),
     Mining,
     SubmittingBlock(Box<dyn Future<Item = (), Error = Error> + Send>),
 }

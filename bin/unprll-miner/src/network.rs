@@ -23,7 +23,7 @@ impl Network {
             client: JSONRPCClient::new(&config.daemon_address)?
         })
     }
-    pub fn get_stats(&self) -> impl Future<Item = Stats, Error = Error> {
+    pub fn get_stats(&self) -> impl Future<Item = GetStatsResponse, Error = Error> {
         self.client.send_jsonrpc_request("get_stats", Value::Null).map(|x| x.unwrap())
     }
     pub fn submit_block(&self, block: Block) -> impl Future<Item = (), Error = Error> {
