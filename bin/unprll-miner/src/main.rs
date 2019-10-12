@@ -1,5 +1,6 @@
 use futures::future::Future;
 use log::{
+    error,
     info
 };
 use structopt::StructOpt;
@@ -24,6 +25,14 @@ fn main() {
 
     info!("{}", format!("{:?} - {:?}", coin_specific::COIN_NAME, coin_specific::VERSION));
 
-    runtime.spawn(MinerStateMachine::new(&config));
-    runtime.shutdown_on_idle().wait().unwrap();
+    match MinerStateMachine::new(&config) {
+        Ok(miner_state_machine) => {
+            runtime.spawn(miner_state_machine);
+
+            runtime.shutdown_on_idle()
+                .wait()
+                .unwrap()
+        },
+        Err(err) => error!("Failed to start miner: {}", err)
+    }
 }

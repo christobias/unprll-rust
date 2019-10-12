@@ -9,6 +9,12 @@ pub struct Config {
     #[structopt(long)]
     pub rpc_bind_port: u16,
 
+    #[structopt(long)]
+    pub wallet_dir: std::path::PathBuf,
+
+    #[structopt(long, default_value = "localhost:21150")]
+    pub daemon_address: String,
+
     #[structopt(flatten)]
     pub bin_common_config: BinCommonConfig
 }

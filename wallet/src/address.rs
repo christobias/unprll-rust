@@ -1,3 +1,5 @@
+// TODO: Probably move this to common so libraries don't have to link to wallet
+
 use std::convert::{
     Into,
     TryFrom

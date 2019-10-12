@@ -1,5 +1,6 @@
 use std::convert::{
     From,
+    Into,
     TryFrom
 };
 use std::fmt::{
@@ -15,7 +16,7 @@ use serde::{Serialize, Deserialize};
 pub type Hash256Data = generic_array::GenericArray<u8, generic_array::typenum::U32>;
 
 /// Representation of 256-bit hash values
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Hash256(Hash256Data);
 
 impl Hash256 {
@@ -38,6 +39,12 @@ impl Display for Hash256 {
 impl From<Hash256Data> for Hash256 {
     fn from(data: Hash256Data) -> Self {
         Hash256(data)
+    }
+}
+
+impl Into<String> for Hash256 {
+    fn into(self) -> String {
+        hex::encode(self.0)
     }
 }
 

@@ -13,6 +13,7 @@ bincode = "1.1"
 coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 crypto = { path = "../../crypto" }
+failure = "0.1"
 futures = "0.1"
 hex = "0.3"
 log = "0.4"
@@ -21,3 +22,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 structopt = "0.2"
 tokio = "0.1"
+wallet = { path = "../../wallet" }

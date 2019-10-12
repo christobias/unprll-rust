@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Block Header
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
     /// Current version of the network
     pub major_version: u8,
@@ -46,7 +46,7 @@ pub struct BlockHeader {
 }
 
 /// Block
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Block {
     /// This block's header
     pub header: BlockHeader,
@@ -80,9 +80,7 @@ impl Block {
                         TXExtra::TxPublicKey(PublicKey::from_slice(&hex::decode("7767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1").unwrap()))
                     },
                     inputs: vec![
-                        TXIn::Gen {
-                            height: 0
-                        }
+                        TXIn::Gen(0)
                     ],
                     outputs: vec![
                         TXOut {

@@ -14,7 +14,8 @@ use blockchain_db::{
 use common::{
     Block,
     GetHash,
-    PreliminaryChecks
+    PreliminaryChecks,
+    Transaction
 };
 use crypto::{
     Hash256
@@ -54,10 +55,10 @@ impl Blockchain {
     }
 
     // Blocks
-    /// Get `count` blocks from `start`
-    pub fn get_blocks(&self, start: u64, count: u64) -> Option<Vec<Block>> {
+    /// Get blocks from `start` to `end` (inclusive)
+    pub fn get_blocks(&self, start: u64, end: u64) -> Option<Vec<Block>> {
         let mut vec = Vec::new();
-        for i in start..(start+count) {
+        for i in start..=end {
             vec.push(self.blockchain_db.get_block_by_height(i)?);
         }
         Some(vec)
@@ -102,6 +103,12 @@ impl Blockchain {
     /// # Returns
     /// A `(block height, Block)` tuple
     pub fn get_tail(&self) -> Result<(u64, Block)> { self.blockchain_db.get_tail() }
+
+    // Transactions
+    /// Gets a transaction with the given txid from confirmed transactions
+    pub fn get_transaction(&self, txid: &Hash256) -> Option<Transaction> {
+        self.blockchain_db.get_transaction(txid)
+    }
 }
 
 impl Stream for Blockchain {

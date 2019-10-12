@@ -107,12 +107,12 @@ impl BlockchainDB {
 
     /// Gets the block at the given height
     pub fn get_block_by_height(&self, height: u64) -> Option<Block> { self.db.get_block_by_height(height) }
-
     /// Gets the block with the given hash
     pub fn get_block_by_hash(&self, hash: &Hash256) -> Option<Block> { self.db.get_block_by_hash(hash) }
-
     /// Gets the current chain tail
     pub fn get_tail(&self) -> Result<(u64, Block)> { self.db.get_tail() }
+    /// Gets the transaction with the given txid
+    pub fn get_transaction(&self, txid: &Hash256) -> Option<Transaction> { self.db.get_transaction(txid) }
 }
 
 impl PreliminaryChecks<Block> for BlockchainDB {
@@ -122,7 +122,7 @@ impl PreliminaryChecks<Block> for BlockchainDB {
 
         let height;
 
-        if let TXIn::Gen{height: h} = block.miner_tx.prefix.inputs[0] {
+        if let TXIn::Gen(h) = block.miner_tx.prefix.inputs[0] {
             height = h;
         } else {
             return Err(format_err!("Block with ID {} does not have a genesis tx input", block_id));

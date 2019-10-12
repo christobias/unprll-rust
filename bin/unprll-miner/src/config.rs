@@ -12,5 +12,8 @@ pub struct Config {
     pub check_interval: u64,
 
     #[structopt(long, default_value = "localhost:21150")]
-    pub daemon_address: String
+    pub daemon_address: String,
+
+    #[structopt(long)]
+    pub miner_address: String
 }

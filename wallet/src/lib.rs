@@ -9,6 +9,7 @@ use serde::{
 use crypto::{
     CNFastHash,
     Digest,
+    Hash256,
     KeyPair,
     ScalarExt,
     SecretKey
@@ -34,7 +35,9 @@ where
     spend_keypair: KeyPair,
     view_keypair: KeyPair,
 
-    addresses: HashMap<SubAddressIndex, Address<TCoinConfig>>
+    addresses: HashMap<SubAddressIndex, Address<TCoinConfig>>,
+
+    checked_blocks: HashMap<u64, Hash256>
 }
 
 impl<TCoinConfig> Wallet<TCoinConfig>
@@ -46,11 +49,17 @@ where
         let mut w = Wallet {
             spend_keypair: KeyPair::from(spend_secret_key),
             view_keypair: KeyPair::from(view_secret_key),
-            addresses: HashMap::new()
+            addresses: HashMap::new(),
+            checked_blocks: HashMap::new()
         };
 
         // Insert standard address in the subaddresses map
         w.addresses.insert(SubAddressIndex(0, 0), Address::standard(w.spend_keypair.public_key, w.view_keypair.public_key));
+
+        // Mark genesis as checked
+        // FIXME: Probably inefficient
+        use common::GetHash;
+        w.checked_blocks.insert(0, common::Block::genesis().get_hash());
 
         w
     }
@@ -74,6 +83,9 @@ where
     }
     pub fn view_keypair(&self) -> &KeyPair {
         &self.view_keypair
+    }
+    pub fn checked_blocks(&self) -> &HashMap<u64, Hash256> {
+        &self.checked_blocks
     }
 }
 

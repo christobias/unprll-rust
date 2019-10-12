@@ -12,10 +12,8 @@ use crate::GetHash;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXIn {
     /// Coinbase (genesis) input. Creates new coins
-    Gen {
-        /// Block height of this transaction. Signifies chain height
-        height: u64
-    },
+    /// Contains the Block height of this transaction
+    Gen(u64),
     /// Coins from an existing "ToKey" output
     FromKey {
         /// Amount of coins sent (0 for RingCT outputs)
@@ -54,7 +52,7 @@ pub enum TXExtra {
 }
 
 /// Transaction prefix
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct TransactionPrefix {
     /// This transaction's version
     pub version: usize,
@@ -69,7 +67,7 @@ pub struct TransactionPrefix {
 }
 
 /// A complete Transaction
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     /// This transaction's prefix
     pub prefix: TransactionPrefix,
@@ -94,7 +92,7 @@ impl GetHash for Transaction {
         vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.inputs.len()).unwrap());
         for input in &self.prefix.inputs {
             match input {
-                TXIn::Gen { height } => {
+                TXIn::Gen(height) => {
                     // Enum tag
                     vec.extend_from_slice(&bincode_epee::serialize(&0xffu8).unwrap());
 

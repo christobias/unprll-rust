@@ -1,10 +1,18 @@
+use std::collections::HashMap;
+
+use log::{
+    info
+};
+
 use common::{
     Block,
+    GetHash,
     Transaction,
     TXExtra,
     TXOutTarget
 };
 use crypto::{
+    Hash256,
     SecretKey
 };
 
@@ -18,8 +26,37 @@ impl<TCoinConfig> Wallet<TCoinConfig>
 where
     TCoinConfig: AddressPrefixConfig
 {
-    pub fn scan_block(&mut self, block: &Block) {
+    pub fn get_last_checked_block(&self) -> (&u64, &Hash256) {
+        self.checked_blocks.iter()
+            .max_by(|(height_1, _), (height_2, _)| height_1.cmp(height_2))
+            .unwrap()
+    }
+    pub fn scan_block(&mut self, block: &Block, transactions: &HashMap<Hash256, Transaction>) {
+        // Check if we're scanning an older block height, in which case
+        // we'll need to rescan from that point (possibly due to a reorg)
+        let block_id = block.get_hash();
+        if let Some((&split_height, _)) = self.checked_blocks.iter().find(|(_, id)| id == &&block_id) {
+            // Remove all blocks at and above the split point
+            self.checked_blocks.retain(|&height, _| height <= split_height);
+
+            // TODO: Remove output keys from blocks above split
+        }
+
+        // Scan the coinbase transaction first
         self.scan_transaction(&block.miner_tx);
+
+        // Then scan each transaction in the block
+        for txid in &block.tx_hashes {
+            // TODO: Handle missing transactions
+            self.scan_transaction(transactions.get(txid).unwrap());
+        }
+
+        // Add this block to the list of scanned blocks
+        // TODO: There's probably a more efficient way
+        if !self.checked_blocks.is_empty() {
+            let (&current_height, _) = self.get_last_checked_block();
+            self.checked_blocks.insert(current_height + 1, block_id);
+        }
     }
 
     fn scan_transaction(&mut self, transaction: &Transaction) -> Option<SecretKey> {
@@ -61,7 +98,7 @@ where
                         };
 
                         if let Some((index, _address)) = index_address_pair {
-                            println!("Output found!");
+                            info!("Output found in txid <{}>", transaction.get_hash());
                             let output_secret_key = if *index == SubAddressIndex(0, 0) {
                                 // Main address derives things differently
                                 // H_s(aR) + b

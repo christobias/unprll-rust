@@ -23,11 +23,12 @@ use crate::{
 
 type WalletStoreRef = Arc<RwLock<WalletStore>>;
 
-pub fn build_server() -> Result<Server<WalletStoreRef>, Error> {
-    let s = Server::with_state(Arc::from(RwLock::from(WalletStore::new())))
+pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Server<WalletStoreRef>, Error> {
+    let s = Server::with_state(wallet_store_ref)
         // Wallet create/load ops
         .with_method("create_wallet", create_wallet)
         .with_method("load_wallet", load_wallet)
+        .with_method("save_wallets", save_wallets)
 
         // (Sub)Address management
         .with_method("get_address", get_address)
@@ -43,9 +44,16 @@ fn create_wallet(Params(params): Params<CreateWalletRequest>, state: State<Walle
     state.write().unwrap().add_wallet(params.wallet_name, w).map_err(Error::from)
 }
 
-fn load_wallet(Params(_params): Params<LoadWalletRequest>, _state: State<WalletStoreRef>) -> Result<(), Error> {
-    // TODO: Implement saving wallets to files
-    Ok(())
+fn load_wallet(Params(params): Params<LoadWalletRequest>, state: State<WalletStoreRef>) -> Result<(), Error> {
+    let mut state = state.write().unwrap();
+
+    state.load_wallet(params.wallet_name).map_err(jsonrpc_v2::Error::from)
+}
+
+fn save_wallets(state: State<WalletStoreRef>) -> Result<(), Error> {
+    let state = state.write().unwrap();
+
+    state.save_wallets().map_err(jsonrpc_v2::Error::from)
 }
 
 fn get_address(Params(params): Params<GetAddressRequest>, state: State<WalletStoreRef>) -> Result<GetAddressResponse, Error> {
@@ -57,6 +65,8 @@ fn get_address(Params(params): Params<GetAddressRequest>, state: State<WalletSto
 
     for index in minor_indices {
         let wallet = wallet_store.get_wallet(&params.wallet_name)?;
+        let wallet = wallet.read().unwrap();
+
         let address = wallet.get_address_for_index(&SubAddressIndex(major_index, index))
             .ok_or_else(|| failure::format_err!("Address at index {} not found", index))?;
 
