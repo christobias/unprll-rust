@@ -6,9 +6,12 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.1"
+bincode_epee = { path = "../bincode_epee" }
 common = { path = "../common" }
 crypto = { path = "../crypto" }
 failure = "0.1"
 hex = "0.3"
+log = "0.4"
 rkv = "0.9"
 structopt = "0.2"
+serde = { version = "1.0", features = ["derive"] }

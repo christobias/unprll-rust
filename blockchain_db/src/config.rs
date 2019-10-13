@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use structopt::StructOpt;
 
 /// Configuration for BlockchainDB
@@ -8,5 +10,10 @@ pub struct Config {
 
     /// Type of database
     #[structopt(long, default_value = "memory")]
-    pub db_type: String
+    pub db_type: String,
+
+    /// Path where database files should be stored
+    /// If unset, uses the default data directory
+    #[structopt(long)]
+    pub db_data_directory: Option<PathBuf>
 }

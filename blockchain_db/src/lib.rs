@@ -70,7 +70,7 @@ impl BlockchainDB {
     pub fn new(config: &Config) -> Self {
         BlockchainDB {
             db: match config.db_type.as_ref() {
-                "memory" => Box::new(mem::BlockchainMemDB::new()),
+                "memory" => Box::new(mem::BlockchainMemDB::new(config)),
                 _ => panic!()
             }
         }
