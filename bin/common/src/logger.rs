@@ -22,7 +22,7 @@ pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
         _ => panic!("Invalid log level")
     };
 
-    let mut log_file_path = if let Some(custom_data_directory) = &config.data_directory {
+    let mut log_file_path = if let Some(custom_data_directory) = &config.log_directory {
         custom_data_directory.to_path_buf()
     } else {
         common::data_dir::get_default_data_dir()

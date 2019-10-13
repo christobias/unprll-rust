@@ -18,5 +18,5 @@ pub struct Config {
     /// Sets the data directory to be used
     /// If unset, the default data directory is used
     #[structopt(long)]
-    pub data_directory: Option<PathBuf>
+    pub log_directory: Option<PathBuf>
 }
