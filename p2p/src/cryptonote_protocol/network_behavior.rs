@@ -35,7 +35,10 @@ use libp2p::{
 use log::debug;
 
 use common::GetHash;
-use cryptonote_core::CryptonoteCore;
+use cryptonote_core::{
+    CryptonoteCore,
+    EmissionCurve
+};
 
 use super::protocol::{
     CryptonoteP2PUpgrade,
@@ -45,15 +48,21 @@ use super::protocol::{
 // IDEA: Further split each component into its own parts for easier use by other coins
 
 /// `NetworkBehaviour` to drive the Cryptonote P2P protocol
-pub struct CryptonoteNetworkBehavior<TSubstream> {
-    core: Arc<RwLock<CryptonoteCore>>,
+pub struct CryptonoteNetworkBehavior<TCoin, TSubstream>
+where
+    TCoin: EmissionCurve
+{
+    core: Arc<RwLock<CryptonoteCore<TCoin>>>,
     events: VecDeque<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>>,
     marker: std::marker::PhantomData<TSubstream>,
     peers: HashSet<PeerId>
 }
 
-impl<TSubstream> CryptonoteNetworkBehavior<TSubstream> {
-    pub fn new(_peer_id: PeerId, core: Arc<RwLock<CryptonoteCore>>) -> Self {
+impl<TCoin, TSubstream> CryptonoteNetworkBehavior<TCoin, TSubstream>
+where
+    TCoin: EmissionCurve
+{
+    pub fn new(_peer_id: PeerId, core: Arc<RwLock<CryptonoteCore<TCoin>>>) -> Self {
         Self {
             core,
             events: VecDeque::new(),
@@ -63,7 +72,11 @@ impl<TSubstream> CryptonoteNetworkBehavior<TSubstream> {
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviour for CryptonoteNetworkBehavior<TSubstream> {
+impl<TCoin, TSubstream> NetworkBehaviour for CryptonoteNetworkBehavior<TCoin, TSubstream>
+where
+    TCoin: cryptonote_core::EmissionCurve,
+    TSubstream: AsyncRead + AsyncWrite
+{
     type ProtocolsHandler = OneShotHandler<TSubstream, CryptonoteP2PUpgrade, CryptonoteP2PUpgrade, CryptonoteP2PMessage>;
     type OutEvent = CryptonoteP2PMessage;
 

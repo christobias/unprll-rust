@@ -18,7 +18,10 @@ use log::{
 use tokio::timer::Interval;
 
 use async_jsonrpc_client::Error;
-use coin_specific::Unprll;
+use coin_specific::{
+    emission::EmissionCurve,
+    Unprll
+};
 use common::{
     Block,
     TXExtra,
@@ -94,7 +97,7 @@ impl MinerStateMachine {
             let tx_dest_key = tx_scalar * crypto::ecc::BASEPOINT + self.miner_address.spend_public_key.decompress().unwrap();
 
             block.miner_tx.prefix.outputs.push(TXOut {
-                amount: 0,
+                amount: Unprll.get_block_reward(block.header.major_version).unwrap(),
                 target: TXOutTarget::ToKey {
                     key: tx_dest_key.compress()
                 }

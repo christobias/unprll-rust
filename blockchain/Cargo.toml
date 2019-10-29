@@ -9,6 +9,7 @@ bincode = "1.1"
 blockchain_db = { path = "../blockchain_db" }
 common = { path = "../common" }
 crypto = { path = "../crypto" }
+failure = "0.1"
 futures = "0.1"
 hex = "0.3"
 log = "0.4"

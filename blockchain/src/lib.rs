@@ -5,6 +5,13 @@
 
 use std::collections::VecDeque;
 
+use failure::format_err;
+use futures::{
+    Async,
+    Poll,
+    Stream,
+    task::Task
+};
 use log::info;
 
 use blockchain_db::{
@@ -20,30 +27,36 @@ use common::{
 use crypto::{
     Hash256
 };
-use futures::{
-    Async,
-    Poll,
-    Stream,
-    task::Task
-};
 
 mod config;
+mod traits;
+
 pub use config::Config;
+pub use traits::EmissionCurve;
 
 /// An interface to the stored blockchain
-pub struct Blockchain {
+pub struct Blockchain<TCoin>
+where
+    // TODO: Wait for trait aliases for simplifying external use
+    TCoin: EmissionCurve
+{
     alternative_blocks: Vec<Block>,
     blockchain_db: BlockchainDB,
+    coin_definition: TCoin,
     current_task: Option<Task>,
     events: VecDeque<Block>
 }
 
-impl Blockchain {
+impl<TCoin> Blockchain<TCoin>
+where
+    TCoin: EmissionCurve
+{
     /// Creates a new Blockchain with the given configuration
-    pub fn new(config: &Config) -> Result<Self> {
+    pub fn new(coin_definition: TCoin, config: &Config) -> Result<Self> {
         let mut blockchain = Blockchain {
             alternative_blocks: Vec::new(),
             blockchain_db: BlockchainDB::new(&config.blockchain_db_config),
+            coin_definition,
             current_task: None,
             events: VecDeque::new()
         };
@@ -82,14 +95,20 @@ impl Blockchain {
     /// # Errors
     /// If any of the pre-checks fail
     pub fn add_new_block(&mut self, block: Block) -> Result<()> {
-        self.blockchain_db.check(&block)?;
+        // Do all prechecks
+        self.check(&block)?;
+
+        // Add the block
+        // TODO: Add transactions once the mempool is done
         self.blockchain_db.add_block(block.clone(), Vec::new())?;
 
+        // Notify any pending tasks
         if let Some(task) = &self.current_task {
             task.notify();
             self.events.push_back(block.clone());
         }
 
+        // Print a log message for confirmation
         let (height, _) = self.get_tail()?;
         info!("Added new block:\tBlock ID: {}\tBlock Height: {}", block.get_hash(), height);
         Ok(())
@@ -111,7 +130,29 @@ impl Blockchain {
     }
 }
 
-impl Stream for Blockchain {
+impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
+    fn check(&self, block: &Block) -> Result<()> {
+        // Do the blockchain DB prechecks
+        self.blockchain_db.check(block)?;
+
+        // The coinbase transaction must have only one output
+        if block.miner_tx.prefix.outputs.len() != 1 {
+            return Err(format_err!("Block {}'s coinbase transaction does not have exactly one output!", block.get_hash()));
+        }
+
+        // The coinbase amount must match the coin's emission curve
+        if block.miner_tx.prefix.outputs[0].amount != self.coin_definition.get_block_reward(block.header.major_version)? {
+            return Err(format_err!("Block {}'s coinbase transaction does not follow the coin's emission curve!", block.get_hash()));
+        }
+
+        Ok(())
+    }
+}
+
+impl<TCoin> Stream for Blockchain<TCoin>
+where
+    TCoin: EmissionCurve
+{
     type Item = Block;
     type Error = ();
 

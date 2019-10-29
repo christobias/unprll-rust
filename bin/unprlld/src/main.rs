@@ -33,7 +33,7 @@ fn run(config: Config) -> Result<(), std::io::Error> {
     let mut runtime = Runtime::new()?;
 
     // Cryptonote Core Hub
-    let core = Arc::new(RwLock::new(CryptonoteCore::new(&config.cryptonote_core_config)));
+    let core = Arc::new(RwLock::new(CryptonoteCore::new(coin_specific::Unprll, &config.cryptonote_core_config)));
 
     p2p::init(&config.p2p_config, &mut runtime, core.clone())?;
     rpc::init(&config.rpc_config, &mut runtime, core);

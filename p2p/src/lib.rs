@@ -16,7 +16,8 @@ use tokio::{
 };
 
 use cryptonote_core::{
-    CryptonoteCore
+    CryptonoteCore,
+    EmissionCurve
 };
 
 mod config;
@@ -25,7 +26,7 @@ mod cryptonote_protocol;
 pub use config::Config;
 use cryptonote_protocol::CryptonoteNetworkBehavior;
 
-pub fn init(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore>>) -> Result<(), std::io::Error> {
+pub fn init<TCoin: 'static +  EmissionCurve + Send + Sync>(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore<TCoin>>>) -> Result<(), std::io::Error> {
     // Create a random PeerId
     let local_key = Keypair::generate_ed25519();
     let peer_id = PeerId::from(local_key.public());

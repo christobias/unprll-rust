@@ -11,12 +11,15 @@ use jsonrpc_v2::{
 };
 
 use common::GetHash;
-use cryptonote_core::CryptonoteCore;
+use cryptonote_core::{
+    CryptonoteCore,
+    EmissionCurve
+};
 use crate::api_definitions::*;
 
-type CoreRef = Arc<RwLock<CryptonoteCore>>;
+type CoreRef<TCoin> = Arc<RwLock<CryptonoteCore<TCoin>>>;
 
-pub fn build_server(core: CoreRef) -> Result<Server<CoreRef>, Error> {
+pub fn build_server<TCoin: 'static + EmissionCurve + Send + Sync>(core: CoreRef<TCoin>) -> Result<Server<CoreRef<TCoin>>, Error> {
     let s = Server::with_state(core)
         .with_method("get_stats", get_stats)
         .with_method("submit_block", submit_block)
@@ -26,7 +29,7 @@ pub fn build_server(core: CoreRef) -> Result<Server<CoreRef>, Error> {
     Ok(s)
 }
 
-fn get_stats(state: State<CoreRef>) -> Result<GetStatsResponse, Error> {
+fn get_stats<TCoin: EmissionCurve>(state: State<CoreRef<TCoin>>) -> Result<GetStatsResponse, Error> {
     let state = state.read().unwrap();
     let blockchain = state.blockchain();
 
@@ -38,7 +41,7 @@ fn get_stats(state: State<CoreRef>) -> Result<GetStatsResponse, Error> {
     })
 }
 
-fn submit_block(Params(params): Params<Vec<String>>, state: State<CoreRef>) -> Result<(), Error> {
+fn submit_block<TCoin: EmissionCurve>(Params(params): Params<Vec<String>>, state: State<CoreRef<TCoin>>) -> Result<(), Error> {
     let block = bincode::deserialize(&hex::decode(&params[0])?)?;
 
     let mut state = state.write().unwrap();
@@ -49,7 +52,7 @@ fn submit_block(Params(params): Params<Vec<String>>, state: State<CoreRef>) -> R
     Ok(())
 }
 
-fn get_blocks(Params(params): Params<GetBlocksRequest>, state: State<CoreRef>) -> Result<GetBlocksResponse, Error> {
+fn get_blocks<TCoin: EmissionCurve>(Params(params): Params<GetBlocksRequest>, state: State<CoreRef<TCoin>>) -> Result<GetBlocksResponse, Error> {
     let start_height = params.from;
     // The end height is optional and will default to a specified value. If the request is too
     // large, the range is reduced
