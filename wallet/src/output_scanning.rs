@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 use log::{
     info
@@ -17,14 +18,14 @@ use crypto::{
 };
 
 use crate::{
-    address::AddressPrefixConfig,
+    AddressPrefixes,
     SubAddressIndex,
     Wallet
 };
 
-impl<TCoinConfig> Wallet<TCoinConfig>
+impl<TCoin> Wallet<TCoin>
 where
-    TCoinConfig: AddressPrefixConfig
+    TCoin: AddressPrefixes
 {
     pub fn get_last_checked_block(&self) -> (&u64, &Hash256) {
         self.checked_blocks.iter()
@@ -84,7 +85,7 @@ where
                         // Check if the output is to our standard address
                         let index_address_pair = if tx_pub_key == computed_pub_key {
                             // It's to our standard address
-                            Some((&SubAddressIndex(0, 0), self.addresses.get(&SubAddressIndex(0, 0)).unwrap()))
+                            Some((SubAddressIndex(0, 0), self.accounts.get(&0).unwrap().addresses().get(&0).unwrap()))
                         } else {
                             // Try the subaddress derivation next
                             // P - H_s(aR)G
@@ -92,20 +93,29 @@ where
                             let computed_pub_key = computed_pub_key.compress();
 
                             // Find the corresponding public spend key
-                            self.addresses.iter().find(|(_, address)| {
-                                address.spend_public_key == computed_pub_key
-                            })
+                            self.accounts
+                                .iter()
+                                .flat_map(|(major, account)| {
+                                    account.addresses()
+                                        .iter()
+                                        .map(move |(minor, address)| {
+                                            (
+                                                SubAddressIndex(*major, *minor),
+                                                address
+                                            )
+                                        })
+                                }).find(|(_, address)| address.spend_public_key == computed_pub_key)
                         };
 
                         if let Some((index, _address)) = index_address_pair {
                             info!("Output found in txid <{}>", transaction.get_hash());
-                            let output_secret_key = if *index == SubAddressIndex(0, 0) {
+                            let output_secret_key = if index == SubAddressIndex(0, 0) {
                                 // Main address derives things differently
                                 // H_s(aR) + b
                                 tx_scalar + self.spend_keypair.secret_key
                             } else {
                                 // H_s(aR) + b + m_i
-                                tx_scalar + self.spend_keypair.secret_key + self.get_subaddress_secret_key(index)
+                                tx_scalar + self.spend_keypair.secret_key + self.get_subaddress_secret_key(&index)
                             };
 
                             return Some(output_secret_key);
@@ -152,8 +162,9 @@ mod tests {
         .map(|(major, minor)| SubAddressIndex(*major, *minor))
         .for_each(|index| {
             // Add the subaddress and get its public keys
-            wallet.add_new_subaddress(index.clone());
-            let address = wallet.get_address_for_index(&index).unwrap();
+            wallet.add_account(index.0);
+            wallet.add_address(index.clone()).unwrap();
+            let address = wallet.get_address_for_index(&index);
 
             // r
             let random_scalar = KeyPair::generate().secret_key;

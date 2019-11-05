@@ -1,13 +1,6 @@
-// TODO: Probably move this to common so libraries don't have to link to wallet
-
 use std::convert::{
     Into,
     TryFrom
-};
-
-use serde::{
-    Serialize,
-    Deserialize
 };
 
 use crypto::{
@@ -15,37 +8,13 @@ use crypto::{
     PublicKey
 };
 
-pub trait AddressPrefixConfig {
-    const STANDARD: u64;
-    const SUBADDRESS: u64;
-    const INTEGRATED: u64;
-}
+use super::{
+    Address,
+    AddressPrefixes,
+    AddressType
+};
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
-pub enum AddressType {
-    Standard,
-    SubAddress,
-    Integrated()
-}
-
-impl Default for AddressType {
-    fn default() -> Self {
-        AddressType::Standard
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Address<TPrefix: AddressPrefixConfig> {
-    #[serde(skip)]
-    pub address_type: AddressType,
-
-    pub spend_public_key: PublicKey,
-    pub view_public_key: PublicKey,
-
-    marker: std::marker::PhantomData<TPrefix>
-}
-
-impl<TPrefix: AddressPrefixConfig> Address<TPrefix> {
+impl<TPrefix: AddressPrefixes> Address<TPrefix> {
     pub fn standard(spend_public_key: PublicKey, view_public_key: PublicKey) -> Self {
         Address {
             address_type: AddressType::Standard,
@@ -75,7 +44,7 @@ impl<TPrefix: AddressPrefixConfig> Address<TPrefix> {
 }
 
 /// Get the string representation of an address
-impl<TPrefix: AddressPrefixConfig> Into<String> for &Address<TPrefix> {
+impl<TPrefix: AddressPrefixes> Into<String> for &Address<TPrefix> {
     fn into(self) -> String {
         let mut address = Vec::new();
 
@@ -98,7 +67,7 @@ impl<TPrefix: AddressPrefixConfig> Into<String> for &Address<TPrefix> {
     }
 }
 
-impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
+impl<TPrefix: AddressPrefixes> Into<String> for Address<TPrefix> {
     fn into(self) -> String {
         let reference = &self;
         reference.into()
@@ -107,7 +76,7 @@ impl<TPrefix: AddressPrefixConfig> Into<String> for Address<TPrefix> {
 
 
 /// Get an Address from its string representation
-impl<TPrefix: AddressPrefixConfig> TryFrom<&str> for Address<TPrefix> {
+impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
     type Error = failure::Error;
 
     fn try_from(data: &str) -> Result<Self, Self::Error> {

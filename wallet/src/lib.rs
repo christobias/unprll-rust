@@ -15,46 +15,48 @@ use crypto::{
     SecretKey
 };
 
-pub mod address;
-mod block_scanning_ops;
-mod subaddress_ops;
+mod account;
+mod address;
+mod output_scanning;
 
 #[cfg(test)]
 mod test_definitions;
 
-use address::Address;
-
-#[derive(Debug, Eq, Clone, Hash, PartialEq, Serialize, Deserialize)]
-pub struct SubAddressIndex(pub u32, pub u32);
+use account::Account;
+pub use address::{
+    Address,
+    AddressPrefixes,
+    SubAddressIndex
+};
 
 #[derive(Serialize, Deserialize)]
-pub struct Wallet<TCoinConfig>
+pub struct Wallet<TCoin>
 where
-    TCoinConfig: address::AddressPrefixConfig
+    TCoin: address::AddressPrefixes
 {
     spend_keypair: KeyPair,
     view_keypair: KeyPair,
 
-    addresses: HashMap<SubAddressIndex, Address<TCoinConfig>>,
+    accounts: HashMap<u32, Account<TCoin>>,
 
     checked_blocks: HashMap<u64, Hash256>
 }
 
-impl<TCoinConfig> Wallet<TCoinConfig>
+impl<TCoin> Wallet<TCoin>
 where
-    TCoinConfig: address::AddressPrefixConfig
+    TCoin: address::AddressPrefixes
 {
     /// Generate a wallet instance from a spend secret key and view secret key
     pub fn from_secret_keys(spend_secret_key: SecretKey, view_secret_key: SecretKey) -> Self {
         let mut w = Wallet {
             spend_keypair: KeyPair::from(spend_secret_key),
             view_keypair: KeyPair::from(view_secret_key),
-            addresses: HashMap::new(),
+            accounts: HashMap::new(),
             checked_blocks: HashMap::new()
         };
 
-        // Insert standard address in the subaddresses map
-        w.addresses.insert(SubAddressIndex(0, 0), Address::standard(w.spend_keypair.public_key, w.view_keypair.public_key));
+        // Insert standard address in the accounts map
+        w.accounts.insert(0, Account::new(Address::standard(w.spend_keypair.public_key, w.view_keypair.public_key)));
 
         // Mark genesis as checked
         // FIXME: Probably inefficient
@@ -72,10 +74,6 @@ where
         let view_secret_key = SecretKey::from_slice(&CNFastHash::digest(&spend_secret_key.to_bytes()));
 
         Self::from_secret_keys(spend_secret_key, view_secret_key)
-    }
-
-    pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Option<&Address<TCoinConfig>> {
-        self.addresses.get(index)
     }
 
     pub fn spend_keypair(&self) -> &KeyPair {

@@ -6,25 +6,20 @@ use crypto::{
     SecretKey
 };
 
-use crate::address::{
-    Address,
-    AddressPrefixConfig
-};
+use crate::Wallet;
 use super::{
-    Wallet,
+    Address,
+    AddressPrefixes,
     SubAddressIndex
 };
 
-// Subaddresses
-impl<TCoinConfig> Wallet<TCoinConfig>
+impl<TCoin> Wallet<TCoin>
 where
-    TCoinConfig: AddressPrefixConfig
+    TCoin: AddressPrefixes
 {
-    pub fn add_new_subaddress(&mut self, index: SubAddressIndex) {
-        // If we have an address already, don't regenerate it
-        // (it's pointless for subaddresses, and it overwrites our standard address)
-        if self.addresses.contains_key(&index) {
-            return;
+    pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Address<TCoin> {
+        if index == &SubAddressIndex(0, 0) {
+            return Address::standard(self.spend_keypair.public_key, self.view_keypair.public_key);
         }
         // Subaddress secret key
         let subaddress_secret_key = self.get_subaddress_secret_key(&index);
@@ -40,10 +35,10 @@ where
         let spend_public_key = spend_public_key.compress();
         let view_public_key = view_public_key.compress();
 
-        self.addresses.insert(index, Address::subaddress(spend_public_key, view_public_key));
+        Address::subaddress(spend_public_key, view_public_key)
     }
 
-    pub(crate) fn get_subaddress_secret_key(&self, SubAddressIndex(major, minor): &SubAddressIndex) -> SecretKey {
+    pub fn get_subaddress_secret_key(&self, SubAddressIndex(major, minor): &SubAddressIndex) -> SecretKey {
         // m = H_s("SubAddr" | a | major | minor)
         // Length of buffer = length("SubAddr\0") + length(public_key) + 2 * length(u32)
         //                  = 8 + 32 + 8 = 48
@@ -67,6 +62,7 @@ mod tests {
     use crypto::ScalarExt;
 
     use crate::test_definitions::TestCoin;
+    use crate::Wallet;
     use super::*;
 
     #[test]
@@ -84,10 +80,8 @@ mod tests {
         ].iter().map(|((major, minor), address_str)| {
             (SubAddressIndex(*major, *minor), address_str)
         }).map(|(index, address_str)| -> (String, _) {
-            // Create the address at that index
-            wallet.add_new_subaddress(index.clone());
-
-            let address = wallet.get_address_for_index(&index).unwrap();
+            // Get the address at that index
+            let address = wallet.get_address_for_index(&index);
             (address.into(), address_str.to_string())
         }).for_each(|(computed_address, expected_address)| {
             // Should be equal to what it is on mainnet

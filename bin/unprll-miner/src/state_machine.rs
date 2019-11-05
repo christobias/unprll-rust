@@ -34,7 +34,7 @@ use crypto::{
     KeyPair,
 };
 use rpc::api_definitions::*;
-use wallet::address::Address;
+use wallet::Address;
 
 use crate::config::Config;
 use crate::miner::Miner;
