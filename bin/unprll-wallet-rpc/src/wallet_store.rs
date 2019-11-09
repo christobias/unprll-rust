@@ -69,7 +69,8 @@ impl WalletStore {
         if self.wallets.contains_key(&wallet_name) {
             return Err(format_err!("Wallet {} exists in memory", wallet_name))
         }
-        self.wallets.insert(wallet_name, Arc::from(RwLock::new(wallet)));
+        self.wallets.insert(wallet_name.clone(), Arc::from(RwLock::new(wallet)));
+        self.refresh_wallet(&wallet_name);
         Ok(())
     }
 
