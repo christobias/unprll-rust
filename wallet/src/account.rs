@@ -41,6 +41,19 @@ where
     pub fn addresses(&self) -> &HashMap<u32, Address<TCoin>> {
         &self.addresses
     }
+    pub fn balance(&self) -> u64 {
+        self.balance
+    }
+    pub fn increment_balance(&mut self, inc: u64) -> Result<(), failure::Error> {
+        self.balance = self.balance.checked_add(inc)
+            .ok_or_else(|| failure::format_err!("Balance overflow imminent"))?;
+        Ok(())
+    }
+    pub fn decrement_balance(&mut self, inc: u64) -> Result<(), failure::Error> {
+        self.balance = self.balance.checked_sub(inc)
+            .ok_or_else(|| failure::format_err!("Balance overflow imminent"))?;
+        Ok(())
+    }
 }
 
 impl<TCoin> Wallet<TCoin>

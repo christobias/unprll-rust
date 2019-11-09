@@ -118,6 +118,10 @@ where
                                 tx_scalar + self.spend_keypair.secret_key + self.get_subaddress_secret_key(&index)
                             };
 
+                            self.accounts.get_mut(&index.0).unwrap()
+                                .increment_balance(output.amount)
+                                .expect("Incrementing balance");
+
                             return Some(output_secret_key);
                         }
                     }
