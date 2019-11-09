@@ -89,12 +89,8 @@ impl WalletStore {
             let mut wallet_path = self.wallet_dir.clone();
             wallet_path.push(wallet_name);
 
-            let file = if std::fs::metadata(&wallet_path).is_err() {
-                // Create the file
-                File::create(wallet_path)
-            } else {
-                File::open(wallet_path)
-            }?;
+            // Open the file
+            let file = File::create(wallet_path)?;
 
             // TODO: Add file encryption before release
             bincode::serialize_into(file, &*wallet.read().unwrap())?;
