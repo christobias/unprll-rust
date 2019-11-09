@@ -7,6 +7,7 @@ use std::{
 };
 
 use log::{
+    debug,
     info,
     warn
 };
@@ -90,7 +91,7 @@ impl BlockchainDBDriver for BlockchainMemDB {
         let file = File::create(&self.db_path)?;
 
         bincode_epee::serialize_into(file, &self).map_err(failure::Error::from)?;
-        info!("Saved MemDB file");
+        debug!("Saved MemDB file");
 
         Ok(())
     }

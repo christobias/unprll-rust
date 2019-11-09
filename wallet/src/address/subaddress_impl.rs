@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn it_generates_subaddress_keys_correctly() {
         // This given key is in public view, hence DO NOT use this wallet for storing any coins
-        let mut wallet: Wallet<TestCoin> = Wallet::from(SecretKey::from_slice(&hex::decode("67a2547fde618d6fbd4d450b28da58feb6836cf223c2f97980731448bb84c100").unwrap()));
+        let wallet: Wallet<TestCoin> = Wallet::from(SecretKey::from_slice(&hex::decode("67a2547fde618d6fbd4d450b28da58feb6836cf223c2f97980731448bb84c100").unwrap()));
 
         [
             ((0, 1), "UNPStRsRsLKPPysVGYVe9fSHqxbAn4sN1RaRGVhGb4G5gpmt9JUzNhLaXndsFRUN3nGa6kzk7cViJBgAuB1dtBtjDKsTvY66vCL"),
