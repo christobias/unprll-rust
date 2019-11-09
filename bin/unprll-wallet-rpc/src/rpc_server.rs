@@ -32,6 +32,7 @@ pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Server<WalletSto
 
         // (Sub)Address management
         .with_method("get_addresses", get_addresses)
+        .with_method("get_balances", get_balances)
         .finish();
 
     Ok(s)
@@ -78,6 +79,21 @@ fn get_addresses(Params(params): Params<GetAddressesRequest>, state: State<Walle
     }
     Ok(response)
 }
+
+fn get_balances(Params(params): Params<GetBalancesRequest>, state: State<WalletStoreRef>) -> Result<GetBalancesResponse, Error> {
+    let wallet_store = state.read().unwrap();
+
+    let mut response = GetBalancesResponse::default();
+
+    let wallet = wallet_store.get_wallet(&params.wallet_name)?;
+    let wallet = wallet.read().unwrap();
+
+    for major_index in params.account_indices {
+        response.balances.insert(
+            major_index,
+            wallet.get_account(major_index).ok_or_else(|| {
+                jsonrpc_v2::Error::from(failure::format_err!("Account at index {} does not exist", major_index))
+            })?.balance()
         );
     }
     Ok(response)

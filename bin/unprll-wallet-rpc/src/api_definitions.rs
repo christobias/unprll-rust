@@ -28,3 +28,15 @@ pub struct GetAddressesRequest {
 pub struct GetAddressesResponse {
     pub addresses: HashMap<u32, String>
 }
+
+// [get_balances]
+#[derive(Default, Serialize, Deserialize)]
+pub struct GetBalancesRequest {
+    pub wallet_name: String,
+    pub account_indices: Vec<u32>
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct GetBalancesResponse {
+    pub balances: HashMap<u32, u64>
+}

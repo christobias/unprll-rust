@@ -82,6 +82,9 @@ where
     pub fn view_keypair(&self) -> &KeyPair {
         &self.view_keypair
     }
+    pub fn accounts(&self) -> &HashMap<u32, Account<TCoin>> {
+        &self.accounts
+    }
     pub fn checked_blocks(&self) -> &HashMap<u64, Hash256> {
         &self.checked_blocks
     }
