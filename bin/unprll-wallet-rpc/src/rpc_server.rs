@@ -31,7 +31,7 @@ pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Server<WalletSto
         .with_method("save_wallets", save_wallets)
 
         // (Sub)Address management
-        .with_method("get_address", get_address)
+        .with_method("get_addresses", get_addresses)
         .finish();
 
     Ok(s)
@@ -56,23 +56,28 @@ fn save_wallets(state: State<WalletStoreRef>) -> Result<(), Error> {
     state.save_wallets().map_err(jsonrpc_v2::Error::from)
 }
 
-fn get_address(Params(params): Params<GetAddressRequest>, state: State<WalletStoreRef>) -> Result<GetAddressResponse, Error> {
+fn get_addresses(Params(params): Params<GetAddressesRequest>, state: State<WalletStoreRef>) -> Result<GetAddressesResponse, Error> {
     let wallet_store = state.read().unwrap();
 
     let major_index = params.account_index;
     let minor_indices = params.address_indices.unwrap_or_else(|| vec!({0}));
-    let mut response = GetAddressResponse::default();
+    let mut response = GetAddressesResponse::default();
 
-    for index in minor_indices {
+    {
         let wallet = wallet_store.get_wallet(&params.wallet_name)?;
         let wallet = wallet.read().unwrap();
 
-        let address = wallet.get_address_for_index(&SubAddressIndex(major_index, index))
-            .ok_or_else(|| failure::format_err!("Address at index {} not found", index))?;
+        for index in minor_indices {
+            let address = wallet.get_address_for_index(&SubAddressIndex(major_index, index));
 
-        response.addresses.insert(
-            index,
-            address.into()
+            response.addresses.insert(
+                index,
+                address.into()
+            );
+        }
+    }
+    Ok(response)
+}
         );
     }
     Ok(response)

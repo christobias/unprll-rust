@@ -16,15 +16,15 @@ pub struct LoadWalletRequest {
     pub password: String
 }
 
-// [get_address]
+// [get_addresses]
 #[derive(Default, Serialize, Deserialize)]
-pub struct GetAddressRequest {
+pub struct GetAddressesRequest {
     pub wallet_name: String,
     pub account_index: u32,
     pub address_indices: Option<Vec<u32>>
 }
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct GetAddressResponse {
+pub struct GetAddressesResponse {
     pub addresses: HashMap<u32, String>
 }
