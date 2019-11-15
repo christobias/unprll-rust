@@ -1,7 +1,7 @@
-use curve25519_dalek::{
-    constants::ED25519_BASEPOINT_POINT,
-    edwards::CompressedEdwardsY,
-    scalar::Scalar
+use crate::ecc::{
+    Scalar,
+    CompressedPoint,
+    BASEPOINT
 };
 use rand;
 use serde::{
@@ -14,7 +14,7 @@ pub type SecretKey = Scalar;
 
 /// A point on the elliptic curve. Usually determined by multiplication of a scalar to the curve
 /// basepoint
-pub type PublicKey = CompressedEdwardsY;
+pub type PublicKey = CompressedPoint;
 
 /// Type alias specific to Cryptonote
 pub type KeyImage = PublicKey;
@@ -55,9 +55,8 @@ impl KeyPair {
 }
 
 impl From<Scalar> for KeyPair {
-    fn from(secret_key: Scalar) -> Self {
-        // TODO: Find out why basepoint table scalar multiplication doesn't work
-        let public_key = (secret_key * ED25519_BASEPOINT_POINT).compress();
+    fn from(secret_key: SecretKey) -> Self {
+        let public_key = (&secret_key * &BASEPOINT).compress();
         Self {
             secret_key,
             public_key

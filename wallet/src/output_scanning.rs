@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 use log::{
     info
@@ -80,7 +79,7 @@ where
 
                         // Do the original Cryptonote derivation first
                         // H_s(aR)G + B
-                        let computed_pub_key = tx_scalar * crypto::ecc::BASEPOINT + self.spend_keypair.public_key.decompress().unwrap();
+                        let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT + self.spend_keypair.public_key.decompress().unwrap();
 
                         // Check if the output is to our standard address
                         let index_address_pair = if tx_pub_key == computed_pub_key {
@@ -89,7 +88,7 @@ where
                         } else {
                             // Try the subaddress derivation next
                             // P - H_s(aR)G
-                            let computed_pub_key = key.decompress().unwrap() - tx_scalar * crypto::ecc::BASEPOINT;
+                            let computed_pub_key = key.decompress().unwrap() - &tx_scalar * &crypto::ecc::BASEPOINT;
                             let computed_pub_key = computed_pub_key.compress();
 
                             // Find the corresponding public spend key
@@ -175,7 +174,7 @@ mod tests {
 
             let tx_pub_key = if let AddressType::Standard = address.address_type {
                 // rG
-                random_scalar * crypto::ecc::BASEPOINT
+                &random_scalar * &crypto::ecc::BASEPOINT
             } else {
                 // rD
                 random_scalar * address.spend_public_key.decompress().unwrap()
@@ -185,7 +184,7 @@ mod tests {
             let tx_scalar = crypto::ecc::data_to_scalar(&(random_scalar * address.view_public_key.decompress().unwrap()));
 
             // H_s(rC)*G + D
-            let tx_dest_key = tx_scalar * crypto::ecc::BASEPOINT + address.spend_public_key.decompress().unwrap();
+            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT + address.spend_public_key.decompress().unwrap();
 
             let t = Transaction {
                 prefix: TransactionPrefix {
@@ -214,7 +213,7 @@ mod tests {
             assert!(tx_scan_result.is_some());
 
             // The tx secret key must correspond to the tx destination key
-            assert!(tx_scan_result.unwrap() * crypto::ecc::BASEPOINT == tx_dest_key);
+            assert!(&tx_scan_result.unwrap() * &crypto::ecc::BASEPOINT == tx_dest_key);
         });
     }
 }

@@ -18,7 +18,7 @@ pub mod ecc {
     pub use curve25519_dalek::scalar::Scalar;
     pub use curve25519_dalek::edwards::CompressedEdwardsY as CompressedPoint;
     pub use curve25519_dalek::edwards::EdwardsPoint as Point;
-    pub use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as BASEPOINT;
+    pub use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE as BASEPOINT;
 
     use super::Digest;
     use super::CNFastHash;
@@ -42,7 +42,7 @@ pub mod ecc {
     ///
     /// The value is converted to a scalar and multiplied with the curve basepoint
     pub fn data_to_point<T: serde::Serialize>(data: &T) -> Point {
-        data_to_scalar(data) * BASEPOINT
+        &data_to_scalar(data) * &BASEPOINT
     }
 }
 

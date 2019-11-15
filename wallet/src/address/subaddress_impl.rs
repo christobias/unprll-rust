@@ -23,7 +23,7 @@ where
         }
         // Subaddress secret key
         let subaddress_secret_key = self.get_subaddress_secret_key(&index);
-        let subaddress_public_key = subaddress_secret_key * crypto::ecc::BASEPOINT;
+        let subaddress_public_key = &subaddress_secret_key * &crypto::ecc::BASEPOINT;
 
         // Subaddress spend public key
         let spend_public_key = self.spend_keypair.public_key.decompress().unwrap() + subaddress_public_key;
