@@ -124,7 +124,7 @@ impl<O: Options, E: ByteOrder> WithOtherEndian<O, E> {
     #[inline(always)]
     pub(crate) fn new(options: O) -> WithOtherEndian<O, E> {
         WithOtherEndian {
-            options: options,
+            options,
             _endian: PhantomData,
         }
     }

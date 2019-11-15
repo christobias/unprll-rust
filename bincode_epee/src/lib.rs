@@ -12,8 +12,8 @@
 //!     // The object that we will serialize.
 //!     let target: Option<String>  = Some("hello world".to_string());
 //!
-//!     let encoded: Vec<u8> = bincode::serialize(&target).unwrap();
-//!     let decoded: Option<String> = bincode::deserialize(&encoded[..]).unwrap();
+//!     let encoded: Vec<u8> = bincode_epee::serialize(&target).unwrap();
+//!     let decoded: Option<String> = bincode_epee::deserialize(&encoded[..]).unwrap();
 //!     assert_eq!(target, decoded);
 //! }
 //! ```

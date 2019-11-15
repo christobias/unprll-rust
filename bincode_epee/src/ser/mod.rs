@@ -44,7 +44,7 @@ impl<W: Write, O: Options> Serializer<W, O> {
         use serde::Serialize;
 
         while n > 127 {
-            try!((128 | n as u8).serialize(&mut *self));
+            (128 | n as u8).serialize(&mut *self)?;
             n >>= 7;
         }
 
@@ -146,7 +146,7 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try!(self.serialize_len(v.len()));
+        self.serialize_len(v.len())?;
         self.writer.write_all(v.as_bytes()).map_err(Into::into)
     }
 
@@ -157,7 +157,7 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        try!(self.serialize_len(v.len()));
+        self.serialize_len(v.len())?;
         self.writer.write_all(v).map_err(Into::into)
     }
 
@@ -169,13 +169,13 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
     where
         T: serde::Serialize,
     {
-        try!(self.writer.write_u8(1));
+        self.writer.write_u8(1)?;
         v.serialize(self)
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        let len = try!(len.ok_or(ErrorKind::SequenceMustHaveLength));
-        try!(self.serialize_len(len));
+        let len = len.ok_or(ErrorKind::SequenceMustHaveLength)?;
+        self.serialize_len(len)?;
         Ok(Compound { ser: self })
     }
 
@@ -198,13 +198,13 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        try!(self.serialize_discriminant(variant_index));
+        self.serialize_discriminant(variant_index)?;
         Ok(Compound { ser: self })
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        let len = try!(len.ok_or(ErrorKind::SequenceMustHaveLength));
-        try!(self.serialize_len(len));
+        let len = len.ok_or(ErrorKind::SequenceMustHaveLength)?;
+        self.serialize_len(len)?;
         Ok(Compound { ser: self })
     }
 
@@ -219,7 +219,7 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        try!(self.serialize_discriminant(variant_index));
+        self.serialize_discriminant(variant_index)?;
         Ok(Compound { ser: self })
     }
 
@@ -240,7 +240,7 @@ impl<'a, W: Write, O: Options> serde::Serializer for &'a mut Serializer<W, O> {
     where
         T: serde::ser::Serialize,
     {
-        try!(self.serialize_discriminant(variant_index));
+        self.serialize_discriminant(variant_index)?;
         value.serialize(self)
     }
 
@@ -264,7 +264,7 @@ pub(crate) struct SizeChecker<O: Options> {
 
 impl<O: Options> SizeChecker<O> {
     pub fn new(options: O) -> SizeChecker<O> {
-        SizeChecker { options: options }
+        SizeChecker { options }
     }
 
     fn add_raw(&mut self, size: u64) -> Result<()> {
@@ -384,7 +384,7 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try!(self.add_len(v.len()));
+        self.add_len(v.len())?;
         self.add_raw(v.len() as u64)
     }
 
@@ -393,7 +393,7 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        try!(self.add_len(v.len()));
+        self.add_len(v.len())?;
         self.add_raw(v.len() as u64)
     }
 
@@ -405,14 +405,14 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
     where
         T: serde::Serialize,
     {
-        try!(self.add_value(1 as u8));
+        self.add_value(1 as u8)?;
         v.serialize(self)
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        let len = try!(len.ok_or(ErrorKind::SequenceMustHaveLength));
+        let len = len.ok_or(ErrorKind::SequenceMustHaveLength)?;
 
-        try!(self.add_len(len));
+        self.add_len(len)?;
         Ok(SizeCompound { ser: self })
     }
 
@@ -435,14 +435,14 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        try!(self.add_value(variant_index));
+        self.add_value(variant_index)?;
         Ok(SizeCompound { ser: self })
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        let len = try!(len.ok_or(ErrorKind::SequenceMustHaveLength));
+        let len = len.ok_or(ErrorKind::SequenceMustHaveLength)?;
 
-        try!(self.add_len(len));
+        self.add_len(len)?;
         Ok(SizeCompound { ser: self })
     }
 
@@ -457,7 +457,7 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        try!(self.add_discriminant(variant_index));
+        self.add_discriminant(variant_index)?;
         Ok(SizeCompound { ser: self })
     }
 
@@ -485,7 +485,7 @@ impl<'a, O: Options> serde::Serializer for &'a mut SizeChecker<O> {
         _variant: &'static str,
         value: &V,
     ) -> Result<()> {
-        try!(self.add_discriminant(variant_index));
+        self.add_discriminant(variant_index)?;
         value.serialize(self)
     }
 
@@ -827,7 +827,7 @@ fn encode_utf8(c: char) -> EncodeUtf8 {
         buf[3] = (code & 0x3F) as u8 | TAG_CONT;
         0
     };
-    EncodeUtf8 { buf: buf, pos: pos }
+    EncodeUtf8 { buf, pos }
 }
 
 struct EncodeUtf8 {
