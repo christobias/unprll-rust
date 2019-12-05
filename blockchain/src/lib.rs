@@ -135,7 +135,11 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
         // Do the blockchain DB prechecks
         self.blockchain_db.check(block)?;
 
-        // The coinbase transaction must have only one output
+        // The coinbase transaction must have only one input and output
+        if block.miner_tx.prefix.inputs.len() != 1 {
+            return Err(format_err!("Block {}'s coinbase transaction does not have exactly one input!", block.get_hash()));
+        }
+
         if block.miner_tx.prefix.outputs.len() != 1 {
             return Err(format_err!("Block {}'s coinbase transaction does not have exactly one output!", block.get_hash()));
         }
