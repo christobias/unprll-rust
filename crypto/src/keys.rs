@@ -1,7 +1,7 @@
 use crate::ecc::{
     Scalar,
     CompressedPoint,
-    BASEPOINT
+    BASEPOINT_TABLE
 };
 use rand;
 use serde::{
@@ -19,22 +19,6 @@ pub type PublicKey = CompressedPoint;
 /// Type alias specific to Cryptonote
 pub type KeyImage = PublicKey;
 
-/// Helper Extension Trait for Scalar
-pub trait ScalarExt {
-    /// Generates a Scalar from a [u8] slice
-    ///
-    /// The constructor for Scalar requires a [u8; 32] (for obvious reasons)
-    /// However, the code for converting between a slice and [u8; 32] tends to be repeated,
-    /// hence, this common implementation
-    fn from_slice(data: &[u8]) -> Scalar {
-        let mut scalar: [u8; 32] = [0; 32];
-        scalar.copy_from_slice(data);
-        Scalar::from_bytes_mod_order(scalar)
-    }
-}
-
-impl ScalarExt for Scalar { }
-
 /// A pair of a given secret key and its corresponding public key
 #[derive(Serialize, Deserialize)]
 pub struct KeyPair {
@@ -47,8 +31,7 @@ pub struct KeyPair {
 impl KeyPair {
     /// Generates a random keypair using the OS CSPRNG
     pub fn generate() -> Self {
-        let mut rng = rand::rngs::OsRng::new().unwrap();
-        let secret_key = Scalar::random(&mut rng);
+        let secret_key = Scalar::random(&mut rand::rngs::OsRng);
 
         Self::from(secret_key)
     }
@@ -56,7 +39,7 @@ impl KeyPair {
 
 impl From<Scalar> for KeyPair {
     fn from(secret_key: SecretKey) -> Self {
-        let public_key = (&secret_key * &BASEPOINT).compress();
+        let public_key = (&secret_key * &BASEPOINT_TABLE).compress();
         Self {
             secret_key,
             public_key
@@ -67,11 +50,12 @@ impl From<Scalar> for KeyPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ecc::ScalarExt;
 
     #[test]
     fn it_works() {
         // Unprll donation wallet viewkey
         let kp = KeyPair::from(Scalar::from_slice(&hex::decode("cae2b02f3a317b0ef61e694d899060f8434aef556bfe60239846533b52ab4608").unwrap()));
-        assert_eq!(hex::encode(kp.public_key.as_bytes()), "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0");
+        assert_eq!(hex::encode(kp.public_key.to_bytes()), "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0");
     }
 }

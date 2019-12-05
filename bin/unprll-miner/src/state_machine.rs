@@ -30,6 +30,8 @@ use common::{
     TXOutTarget
 };
 use crypto::{
+    CNFastHash,
+    Digest,
     Hash256,
     KeyPair,
 };
@@ -91,10 +93,10 @@ impl MinerStateMachine {
         //                  just exists to test output scanning
         {
             let random_scalar = KeyPair::generate().secret_key;
-            let tx_pub_key = &random_scalar * &crypto::ecc::BASEPOINT;
+            let tx_pub_key = &random_scalar * &crypto::ecc::BASEPOINT_TABLE;
 
-            let tx_scalar = crypto::ecc::data_to_scalar(&(random_scalar * self.miner_address.view_public_key.decompress().unwrap()));
-            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT + self.miner_address.spend_public_key.decompress().unwrap();
+            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest((random_scalar * self.miner_address.view_public_key.decompress().unwrap()).compress().as_bytes()));
+            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE + self.miner_address.spend_public_key.decompress().unwrap();
 
             block.miner_tx.prefix.outputs.push(TXOut {
                 amount: Unprll.get_block_reward(block.header.major_version).unwrap(),
