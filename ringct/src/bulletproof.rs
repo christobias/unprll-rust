@@ -1,6 +1,10 @@
 // Needed because most cryptographic code relies on non snake case names
 #![allow(non_snake_case)]
 
+use serde::{
+    Serialize,
+    Deserialize
+};
 use failure::format_err;
 
 use crypto::{
@@ -27,6 +31,7 @@ use crate::{
     MASK_BASEPOINT_TABLE,
 };
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Bulletproof {
     pub V: Vec<Point>,
     pub A: Point,
