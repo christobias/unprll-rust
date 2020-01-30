@@ -13,7 +13,6 @@ use crypto::{
     ecc::{
         BASEPOINT_TABLE,
         CompressedPoint,
-        Point,
         Scalar
     },
     KeyImage,
@@ -25,7 +24,7 @@ use crate::{
     MatrixExt
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub s: Matrix<Scalar>,
     pub c: Scalar,
@@ -42,8 +41,11 @@ impl Default for Signature {
     }
 }
 
-/// SIGN algorithm as defined in the RingCT paper
-pub fn sign(message: SecretKey, ring: &Matrix<CompressedPoint>, index: usize, signer_keys: &[SecretKey]) -> Result<Signature, failure::Error> {
+/// SIGN algorithm as defined in Monero
+/// 
+/// The version implemented in Monero differs from the version defined in
+/// the RingCT whitepaper in that it allows specifying which keys need a key image
+pub fn sign(message: &[u8], ring: &Matrix<CompressedPoint>, index: usize, signer_keys: &[SecretKey], double_spendable_keys: usize) -> Result<Signature, failure::Error> {
     // Assertions to ensure input sanity
     // NOTE: KeyMatrix rows contain key vectors, whose columns contain keys
     let rows = ring.len();
@@ -54,61 +56,77 @@ pub fn sign(message: SecretKey, ring: &Matrix<CompressedPoint>, index: usize, si
     if signer_keys.len() != cols { return Err(format_err!("Signer key vector is not consistent with ring matrix")); }
 
     // Generate key images
-    let key_images: Vec<Point> = signer_keys.iter().enumerate().map(|(i_key, x)| {
-        x * crypto::ecc::hash_to_point(CNFastHash::digest(ring[index][i_key].as_bytes()))
-    }).collect();
+    let key_images: Vec<_> = signer_keys.iter()
+        .enumerate()
+        .zip(0..double_spendable_keys)
+        .map(|((i_key, x), _)| {
+            x * crypto::ecc::hash_to_point(CNFastHash::digest(ring[index][i_key].as_bytes()))
+        }).collect();
 
     // Generate random scalar vector and matrix for signature
     let alpha: Vec<Scalar> = (0..cols).map(|_| Scalar::random(&mut OsRng)).collect();
     let mut signature = Matrix::from_fn(rows, cols, |_,_| Scalar::random(&mut OsRng));
 
-    // Initialize vectors and matrices
-    let mut mat_l = Matrix::from_fn(rows, cols, |i_key_vector, i_key| {
-        if i_key_vector == index {
-            &alpha[i_key] * &BASEPOINT_TABLE
-        } else {
-            Point::default()
-        }
-    });
-    let mut mat_r = Matrix::from_fn(rows, cols, |i_key_vector, i_key| {
-        if i_key_vector == index {
-            alpha[i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[index][i_key].as_bytes()))
-        } else {
-            Point::default()
-        }
-    });
-    let mut vec_c: Vec<Scalar> = (0..rows).map(|_| Scalar::one()).collect();
-
-    // Run hash function
     let mut hasher = CNFastHash::new();
-    hasher.input(&bincode::serialize(&message).unwrap());
-    for i_key in 0..cols {
-        hasher.input(&bincode::serialize(&mat_l[index][i_key]).unwrap());
-        hasher.input(&bincode::serialize(&mat_r[index][i_key]).unwrap());
+
+    hasher.input(message);
+    for i_key in 0..double_spendable_keys {
+        hasher.input(ring[index][i_key].as_bytes());
+        hasher.input(
+            (&alpha[i_key] * &BASEPOINT_TABLE).compress().as_bytes()
+        );
+        hasher.input(
+            (alpha[i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[index][i_key].as_bytes())))
+            .compress().as_bytes()
+        );
     }
-    vec_c[(index + 1) % rows] = crypto::ecc::hash_to_scalar(hasher.result());
+    for i_key in double_spendable_keys..cols {
+        hasher.input(ring[index][i_key].as_bytes());
+        hasher.input(
+            (&alpha[i_key] * &BASEPOINT_TABLE).compress().as_bytes()
+        );
+    }
+
+    let mut vec_c: Vec<Scalar> = (0..rows).map(|_| Scalar::one()).collect();
+    vec_c[(index + 1) % rows] = crypto::ecc::hash_to_scalar(hasher.result_reset());
 
     // Progress the calculation
     for i_key_vector in 1..rows {
         let i_key_vector = (index + i_key_vector) % rows;
 
-        for i_key in 0..cols {
+        hasher.input(message);
+        for i_key in 0..double_spendable_keys {
+            hasher.input(ring[i_key_vector][i_key].as_bytes());
             // L_j = s_j * G + c_j * P_j
-            mat_l[i_key_vector][i_key] = (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE) + (vec_c[i_key_vector] * ring[i_key_vector][i_key].decompress().unwrap());
+            hasher.input(
+                (
+                    (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE) +
+                    (vec_c[i_key_vector] * ring[i_key_vector][i_key].decompress().unwrap())
+                ).compress().as_bytes()
+            );
 
             // R_j = s_j * H(P_j) + c_j * I
-            mat_r[i_key_vector][i_key] = (signature[i_key_vector][i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[i_key_vector][i_key].as_bytes()))) + (vec_c[i_key_vector] * key_images[i_key]);
+            hasher.input(
+                (
+                    (signature[i_key_vector][i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[i_key_vector][i_key].as_bytes()))) +
+                    (vec_c[i_key_vector] * key_images[i_key])
+                ).compress().as_bytes()
+            )
+        }
+
+        for i_key in double_spendable_keys..cols {
+            hasher.input(ring[i_key_vector][i_key].as_bytes());
+            // L_j = s_j * G + c_j * P_j
+            hasher.input(
+                (
+                    (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE) +
+                    (vec_c[i_key_vector] * ring[i_key_vector][i_key].decompress().unwrap())
+                ).compress().as_bytes()
+            );
         }
 
         // c
-        let mut hasher = CNFastHash::new();
-        hasher.input(&bincode::serialize(&message).unwrap());
-        for i_key in 0..cols {
-            hasher.input(&bincode::serialize(&mat_l[i_key_vector][i_key]).unwrap());
-            hasher.input(&bincode::serialize(&mat_r[i_key_vector][i_key]).unwrap());
-        }
-
-        vec_c[(i_key_vector + 1) % rows] = crypto::ecc::hash_to_scalar(hasher.result());
+        vec_c[(i_key_vector + 1) % rows] = crypto::ecc::hash_to_scalar(hasher.result_reset());
     }
 
     // Tweak signature for successful validation
@@ -118,58 +136,77 @@ pub fn sign(message: SecretKey, ring: &Matrix<CompressedPoint>, index: usize, si
 
     let key_images = key_images.iter().map(|x| x.compress()).collect();
 
-    Ok(Signature {
+    let s = Signature {
         s: signature,
         c: vec_c[0],
         key_images
-    })
+    };
+
+    Ok(s)
 }
 
 /// VERIFY algorithm as defined in the RingCT paper
-pub fn verify(message: SecretKey, ring: &Matrix<CompressedPoint>, signature: Signature) -> Result<bool, failure::Error> {
+pub fn verify(message: &[u8], ring: &Matrix<CompressedPoint>, signature: &Signature, double_spendable_keys: usize) -> Result<(), failure::Error> {
     // Assertions for input sanity
     let rows = ring.len();
     if rows < 2 { return Err(format_err!("Ring must contain more than 1 member")); }
 
     let cols = ring[0].len();
-
-    // Initialize matrices and vectors
-    let mut mat_l = Matrix::from_fn(rows, cols, |_,_| Point::default());
-    let mut mat_r = Matrix::from_fn(rows, cols, |_,_| Point::default());
-    let mut c: Vec<Scalar> = (0..=rows).map(|_| Scalar::one()).collect();
+    if cols < 1                     { return Err(format_err!("Ring does not contain any public keys")); }
+    if double_spendable_keys > cols { return Err(format_err!("Number of double spendable keys greater than number of keys")); }
+    if signature.s.len() != rows || signature.s[0].len() != cols { return Err(format_err!("S matrix does not match ring")); }
+    if signature.key_images.len() != double_spendable_keys       { return Err(format_err!("Number of double spendable keys does not equal number of key images"));}
 
     let Signature { key_images, c: c_0, s: signature } = signature;
 
     // Start the chain of computations
-    c[0] = c_0;
+    let mut hasher = CNFastHash::new();
+
+    let mut last_c = *c_0;
     for i_key_vector in 0..rows {
-        for i_key in 0..cols {
+        hasher.input(message);
+
+        // Start with the double spendable keys
+        for i_key in 0..double_spendable_keys {
             // L_j = s_j * G + c_j * P_j
-            mat_l[i_key_vector][i_key] = (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE) + (c[i_key_vector] * ring[i_key_vector][i_key].decompress().unwrap());
-
+            let l = (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE)
+                + (last_c * ring[i_key_vector][i_key].decompress().unwrap());
             // R_j = s_j * H(P_j) + c_j * I
-            mat_r[i_key_vector][i_key] = (signature[i_key_vector][i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[i_key_vector][i_key].as_bytes()))) + (c[i_key_vector] * key_images[i_key].decompress().unwrap());
+            let r = (signature[i_key_vector][i_key] * crypto::ecc::hash_to_point(CNFastHash::digest(ring[i_key_vector][i_key].as_bytes())))
+                + (last_c * key_images[i_key].decompress().unwrap());
+
+            // pubkey || L || R
+            hasher.input(ring[i_key_vector][i_key].as_bytes());
+            hasher.input(l.compress().as_bytes());
+            hasher.input(r.compress().as_bytes());
         }
 
-        let mut hasher = CNFastHash::new();
-        hasher.input(&bincode::serialize(&message).unwrap());
-        for i_key in 0..cols {
-            hasher.input(&bincode::serialize(&mat_l[i_key_vector][i_key]).unwrap());
-            hasher.input(&bincode::serialize(&mat_r[i_key_vector][i_key]).unwrap());
+        // Continue with the non double spendable keys
+        for i_key in double_spendable_keys..cols {
+            // L_j = s_j * G + c_j * P_j
+            let l = (&signature[i_key_vector][i_key] * &BASEPOINT_TABLE) + (last_c * ring[i_key_vector][i_key].decompress().unwrap());
+
+            // pubkey || L
+            hasher.input(ring[i_key_vector][i_key].as_bytes());
+            hasher.input(l.compress().as_bytes());
         }
-        c[i_key_vector + 1] = crypto::ecc::hash_to_scalar(hasher.result());
+        last_c = crypto::ecc::hash_to_scalar(hasher.result_reset());
     }
 
-    Ok(c[rows] == c[0])
+    if last_c != *c_0 {
+        return Err(format_err!("MLSAG failed verification"))
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::RngCore;
 
     #[test]
     fn it_works() {
-        let index = 0;
+        let index = (rand::rngs::OsRng.next_u32() % 3) as usize;
         let keypairs: Vec<crypto::KeyPair> = (0..2).map(|_| crypto::KeyPair::generate()).collect();
 
         let ring = Matrix::from_fn(3, 2, |i_key_vector, i_key| {
@@ -182,34 +219,33 @@ mod tests {
 
         let sig_keys: Vec<_> = keypairs.iter().map(|x| x.secret_key).collect();
         let message = crypto::KeyPair::generate().secret_key;
-        let signature = sign(message, &ring, index, &sig_keys);
+        let signature = sign(message.as_bytes(), &ring, index, &sig_keys, 1);
 
         assert!(signature.is_ok());
         let signature = signature.unwrap();
 
-        let res = verify(message, &ring, signature);
-        assert!(res.is_ok());
-        assert!(res.unwrap());
+        let res = verify(message.as_bytes(), &ring, &signature, 1);
+        res.unwrap()
     }
 
     #[test]
-    fn it_errors_on_single_member_rings() {
+    fn it_refuses_single_member_rings() {
         let ring = Matrix::from_fn(1, 3, |_,_| crypto::KeyPair::generate().public_key);
         let sig_keys: Vec<_> = (0..3).map(|_| crypto::KeyPair::generate().secret_key).collect();
-        assert!(sign(crypto::KeyPair::generate().secret_key, &ring, 0, &sig_keys).is_err());
+        assert!(sign(crypto::KeyPair::generate().secret_key.as_bytes(), &ring, 0, &sig_keys, 3).is_err());
     }
 
     #[test]
-    fn it_handles_out_of_bounds_index() {
+    fn it_handles_out_of_bounds_secret_index() {
         let ring = Matrix::from_fn(2, 2, |_,_| crypto::KeyPair::generate().public_key);
         let sig_keys: Vec<_> = (0..2).map(|_| crypto::KeyPair::generate().secret_key).collect();
-        assert!(sign(crypto::KeyPair::generate().secret_key, &ring, 2, &sig_keys).is_err());
+        assert!(sign(crypto::KeyPair::generate().secret_key.as_bytes(), &ring, 2, &sig_keys, 2).is_err());
     }
 
     #[test]
     fn it_handles_inconsistent_signer_key_vectors() {
         let ring = Matrix::from_fn(3, 3, |_,_| crypto::KeyPair::generate().public_key);
         let sig_keys: Vec<_> = (0..2).map(|_| crypto::KeyPair::generate().secret_key).collect();
-        assert!(sign(crypto::KeyPair::generate().secret_key, &ring, 0, &sig_keys).is_err());
+        assert!(sign(crypto::KeyPair::generate().secret_key.as_bytes(), &ring, 0, &sig_keys, 3).is_err());
     }
 }
