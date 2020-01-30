@@ -173,9 +173,9 @@ lazy_static! {
 }
 
 /// Checks a set of bulletproofs for validity
-pub fn verify_multiple(proofs: Vec<Bulletproof>) -> Result<(), failure::Error> {
+pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Error> {
     let mut max_length = 0;
-    for proof in &proofs {
+    for proof in proofs {
         // Sanity checks
         if (proof.tau_x.reduce() != proof.tau_x)
             || (proof.mu.reduce() != proof.mu)
@@ -231,9 +231,7 @@ pub fn verify_multiple(proofs: Vec<Bulletproof>) -> Result<(), failure::Error> {
 
         let MN = N_BITS * M;
 
-        // TODO: Make this random before release
-        // let weight = Scalar::random(&mut rng);
-        let weight = Scalar::one();
+        let weight = Scalar::random(&mut rand::rngs::OsRng);
 
         // Replay the transcript
         let mut hasher = CNFastHash::new();
@@ -469,7 +467,7 @@ mod tests {
             t: Scalar::from_slice(&hex::decode("bfa2af387659ddb7fb4418fb8094a99f394012c5fe300c7cf8bf15cc91fd2d04").unwrap())
         };
 
-        let res = super::verify_multiple(vec!{b});
+        let res = super::verify_multiple(&[&b]);
         println!("{:?}", res);
         assert!(res.is_ok());
     }
