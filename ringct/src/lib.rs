@@ -42,3 +42,4 @@ lazy_static! {
 
 pub mod bulletproof;
 pub mod mlsag;
+pub mod ringct;
