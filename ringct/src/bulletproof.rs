@@ -157,7 +157,8 @@ fn get_power(base: Point, index: u64) -> Point {
     hasher.input(bincode_epee::serialize(&index).unwrap());
 
     let hash = hasher.result();
-    hash_to_point(hash)
+    // Double hash
+    hash_to_point(CNFastHash::digest(&hash))
 }
 
 lazy_static! {

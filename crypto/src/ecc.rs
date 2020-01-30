@@ -1,8 +1,3 @@
-use crate::{
-    CNFastHash,
-    Digest
-};
-
 mod from_c {
     use std::os::raw::{
         c_int,
@@ -49,8 +44,6 @@ pub fn hash_to_scalar(hash: crate::hash::Hash256Data) -> Scalar {
 /// 
 /// Uses ge_fromfe_frombytes_vartime from Monero
 pub fn hash_to_point(hash: crate::hash::Hash256Data) -> Point {
-    // Double hash
-    let hash = CNFastHash::digest(&hash);
     let mut result: [u8; 32] = [0; 32];
     unsafe {
         let ret = from_c::hash_to_point(hash.as_ptr(), result.as_mut_ptr());
