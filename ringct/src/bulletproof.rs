@@ -1,11 +1,14 @@
 // Needed because most cryptographic code relies on non snake case names
 #![allow(non_snake_case)]
 
+use std::borrow::Borrow;
+
+use failure::format_err;
+use itertools::Itertools;
 use serde::{
     Serialize,
     Deserialize
 };
-use failure::format_err;
 
 use crypto::{
     curve25519_dalek::{
@@ -31,7 +34,7 @@ use crate::{
     MASK_BASEPOINT_TABLE,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bulletproof {
     pub V: Vec<Point>,
     pub A: Point,
@@ -54,13 +57,6 @@ const N_BITS: usize = 64;
 
 /// Maximum number of values proved by a given bulletproof
 const M_MAX: usize = 16;
-
-/// Generate a vector of Pedersen Commitments from a set of Scalars
-// fn create_commitments(a: &mut dyn Iterator<Item = Scalar>, b: &mut dyn Iterator<Item = Scalar>) -> Point {
-//     a.zip(b).map(|(l, r)| {
-//         (&l * &BASEPOINT_TABLE) + (&r * &*MASK_BASEPOINT_TABLE)
-//     }).fold(Point::default(), |sum, p| sum + p)
-// }
 
 struct Transcript {
     hasher: CNFastHash,
@@ -146,12 +142,9 @@ pub fn power_sum(a: Scalar, n: usize) -> Scalar {
 /// Computes the inner product of the given Scalar arrays
 /// 
 /// `IP = a_1*b_1 + a_2*b_2 + ... + a_n*b_n`
-fn inner_product(a: &[Scalar], b: &[Scalar]) -> Scalar {
-    let mut res = Scalar::zero();
-    for (a, b) in a.iter().zip(b) {
-        res += a * b;
-    }
-    res
+fn inner_product(a: impl IntoIterator<Item = impl Borrow<Scalar>>, b: impl IntoIterator<Item = impl Borrow<Scalar>>) -> Scalar {
+    a.into_iter().zip(b)
+        .fold(Scalar::zero(), |sum, (a, b)| sum + (a.borrow() * b.borrow()))
 }
 
 fn get_power(base: Point, index: u64) -> Point {
@@ -174,13 +167,313 @@ lazy_static! {
     static ref TWO_POWERS: Vec<Scalar> = power_vector(Scalar::from(2u64), N_BITS);
 
     /// Inner product of the power vectors of 1 and 2
-    static ref ONE_TWO_INNER_PRODUCT: Scalar = inner_product(&(0..N_BITS).map(|_| Scalar::one()).collect::<Vec<_>>(), &TWO_POWERS);
+    static ref ONE_TWO_INNER_PRODUCT: Scalar = inner_product((0..N_BITS).map(|_| Scalar::one()), TWO_POWERS.iter());
+
+    /// Commitment basepoints Hi
+    static ref H_I: Vec<Point> = (0..(N_BITS * M_MAX))
+        .map(|i| 2 * i)
+        .map(|i| get_power(*MASK_BASEPOINT, i as u64))
+        .collect();
+
+    /// Commitment basepoints Gi
+    static ref G_I: Vec<Point> = (0..(N_BITS * M_MAX))
+        .map(|i| (2 * i) + 1)
+        .map(|i| get_power(*MASK_BASEPOINT, i as u64))
+        .collect();
+}
+
+pub fn prove_multiple(value_mask_pairs: &[(u64, Scalar)]) -> Result<Bulletproof, failure::Error> {
+    // Make sure we're not proving too many values
+    if value_mask_pairs.len() > M_MAX {
+        return Err(format_err!("Too many values to be proved"));
+    }
+
+    // Number of values to be proved
+    let mut M = 0;
+    // Find log2(M)
+    let mut logM = 0;
+    while (M < value_mask_pairs.len()) && (M <= M_MAX) {
+        logM += 1;
+        M = 1 << logM;
+    }
+
+    let MN = N_BITS * M;
+
+    // Keep the current length of value_mask_pairs before converting to an iterator
+    let current_length = value_mask_pairs.len();
+    // Convert the values to `Scalar`s
+    let value_mask_pairs = value_mask_pairs.iter().map(|(value, mask)| {
+        (Scalar::from(*value), mask)
+    });
+
+    // Compute the value commitments
+    let V = value_mask_pairs.clone().map(|(value, mask)| {
+        // V = mG + vH
+        (mask * &BASEPOINT_TABLE) + (&value * &*MASK_BASEPOINT_TABLE)
+    }).map(|V| *INV_EIGHT * V);    
+
+    // Extend the given values to match the next power of 2 at M
+    // and decompose each value into its binary digits
+    //
+    // aL contains the binary representation
+    let bin_decomp = value_mask_pairs.clone()
+        .map(|(value, _)| value)
+        .chain((current_length..M).map(|_| Scalar::zero()))
+        .flat_map(|value| {
+            let mut v = [0; N_BITS];
+            for (n, byte) in value.as_bytes().iter().take(N_BITS / 8).enumerate() {
+                for i in 0..8 {
+                    v[(n * 8) + i] = if (byte & (1 << i)) == 0 {
+                        0u8
+                    } else {
+                        1u8
+                    };
+                }
+            }
+            v.to_vec()
+        }).collect::<Vec<_>>();
+
+    let aL = bin_decomp.iter().map(|x| Scalar::from(*x as u64));
+ 
+    // aR is aL - 1 (scalar arithmetic)
+    let aR = aL.clone().map(|val| val - Scalar::one());
+
+    // Repeat in a loop if it so happens that the challenges equal zero
+    loop {
+        let mut hasher = CNFastHash::new();
+
+        // Begin the transcript with a hash of all value commitments
+        V.clone().for_each(|x| hasher.input(x.compress().to_bytes()));
+        let mut transcript = Transcript::new(hash_to_scalar(hasher.result()));
+
+        // Generate the blinded Pedersen Commitments to aL and aR
+        // alpha & A
+        let alpha = Scalar::random(&mut rand::rngs::OsRng);
+        let vec_exp = Point::multiscalar_mul(
+            aL.clone().interleave(aR.clone()),
+            G_I.iter().interleave(H_I.iter()).take(2 * bin_decomp.len())
+        );
+
+        // A = VE + alphaG
+        // Inverse 8 to adjust for cofactor-8
+        let A = *INV_EIGHT * (vec_exp + (&alpha * &BASEPOINT_TABLE));
+
+        // S
+        let sL = (0..MN).map(|_| Scalar::random(&mut rand::rngs::OsRng)).collect::<Vec<_>>().into_iter();
+        let sR = (0..MN).map(|_| Scalar::random(&mut rand::rngs::OsRng)).collect::<Vec<_>>().into_iter();
+        let rho = Scalar::random(&mut rand::rngs::OsRng);
+        let vec_exp = Point::multiscalar_mul(
+            sL.clone().interleave(sR.clone()),
+            G_I.iter().interleave(H_I.iter()).take(2 * MN)
+        );
+
+        // A = VE + rhoG
+        // Inverse 8 to adjust for cofactor-8
+        let S = *INV_EIGHT * (vec_exp + (&rho * &BASEPOINT_TABLE));
+
+        // Compute the challenges y, z
+        transcript.extend_with_points(&[A, S]);
+        let y = transcript.get_current_state();
+        if y == Scalar::zero() {
+            println!("y is 0, retrying...");
+            continue;
+        }
+
+        let z = hash_to_scalar(CNFastHash::digest(y.as_bytes()));
+        if z == Scalar::zero() {
+            println!("z is 0, retrying...");
+            continue;
+        }
+        transcript.reset_state(z);
+
+        // Polynomial Construction
+        let l_0 = aL.clone().map(|aL| aL - z);
+        let l_1 = sL;
+
+        let z_pow = power_vector(z, M + 2);
+
+        let mut zero_twos = (0..(MN)).map(|_| Scalar::zero()).collect::<Vec<_>>();
+        for i in 0..(MN) {
+            for j in 1..=M {
+                if (i >= (j - 1) * N_BITS) && (i < (j * N_BITS)) {
+                    // TODO: Add assertions, replace with an iterator chained version
+                    // zt += (z^n) * 2^n
+                    zero_twos[i] += z_pow[j + 1] * TWO_POWERS[i - (j-1)*N_BITS];
+                }
+            }
+        }
+
+        let y_pow = power_vector(y, MN);
+        let r_0 = aR.clone()
+            // aR[i] + z
+            .map(|a| a + z)
+            // Hadamard(r0, y_pow)
+            .zip(&y_pow).map(|(r, y)| r * y)
+            // r0 + zero_twos
+            .zip(zero_twos).map(|(r, zT)| r + zT);
+
+        // Hadamard(yMN, sR)
+        let r_1 = sR.zip(&y_pow).map(|(s, y)| s * y);
+
+        let t_1 = inner_product(l_0.clone(), r_1.clone()) + inner_product(l_1.clone(), r_0.clone());
+        let t_2 = inner_product(l_1.clone(), r_1.clone());
+
+        let tau_1 = Scalar::random(&mut rand::rngs::OsRng);
+        let tau_2 = Scalar::random(&mut rand::rngs::OsRng);
+
+        let T_1 = (
+            (&tau_1 * &BASEPOINT_TABLE) +
+            (&t_1 * &*MASK_BASEPOINT_TABLE)
+        ) * &*INV_EIGHT;
+        let T_2 = (
+            (&tau_2 * &BASEPOINT_TABLE) +
+            (&t_2 * &*MASK_BASEPOINT_TABLE)
+        ) * &*INV_EIGHT;
+
+        transcript.extend_with_scalars(&[z]);
+        transcript.extend_with_points(&[T_1, T_2]);
+
+        let x = transcript.get_current_state();
+        if x == Scalar::zero() {
+            println!("x is 0, retrying...");
+            continue;
+        }
+        
+        let tau_x = value_mask_pairs.clone()
+            .zip(&z_pow[2..])
+            .fold((tau_1 * x) + (tau_2 * x * x), |tau_x, ((_, mask), z_n)| {
+                tau_x + (z_n * mask)
+            });
+
+        let mu = alpha + (x * rho);
+
+        let l = l_0.clone().zip(l_1).map(|(l, l_1)| l + (l_1 * x));
+        let r = r_0.clone().zip(r_1).map(|(r, r_1)| r + (r_1 * x));
+
+        let t = inner_product(l.clone(), r.clone());
+
+        transcript.extend_with_scalars(&[x, tau_x, mu, t]);
+        let x_ip = transcript.get_current_state();
+        if x_ip == Scalar::zero() {
+            println!("x_ip is 0, retrying...");
+            continue;
+        }
+
+        let mut n_prime = MN;
+        let y_inv_pow = power_vector(y.invert(), n_prime);
+
+        let mut a_prime = l.collect::<Vec<_>>();
+        let mut b_prime = r.collect::<Vec<_>>();
+
+        let mut G_prime = G_I[..MN].to_vec();
+        let mut H_prime = H_I.iter()
+            .zip(y_inv_pow)
+            .map(|(h_p, y_inv_pow)| h_p * y_inv_pow)
+            .take(MN)
+            .collect::<Vec<_>>();
+
+        let mut L = Vec::new();
+        let mut R = Vec::new();
+
+        let mut w = Vec::new();
+
+        while n_prime > 1 {
+            n_prime /= 2;
+
+            let c_L = inner_product(&a_prime[..n_prime], &b_prime[n_prime..]);
+            let c_R = inner_product(&a_prime[n_prime..], &b_prime[..n_prime]);
+
+            let L_i = Point::multiscalar_mul(
+                a_prime[..n_prime].iter()
+                    .interleave(b_prime[n_prime..].iter()),
+                G_prime[n_prime..].iter()
+                    .interleave(H_prime[..n_prime].iter())
+            );
+            let L_i = (L_i + ((c_L * x_ip) * *MASK_BASEPOINT)) * *INV_EIGHT;
+
+            let R_i = Point::multiscalar_mul(
+                a_prime[n_prime..].iter()
+                    .interleave(b_prime[..n_prime].iter()),
+                G_prime[..n_prime].iter()
+                    .interleave(H_prime[n_prime..].iter())
+            );
+            let R_i = (R_i + ((c_R * x_ip) * *MASK_BASEPOINT)) * *INV_EIGHT;
+
+            L.push(L_i);
+            R.push(R_i);
+
+            transcript.extend_with_points(&[L_i, R_i]);
+
+            let w_i = transcript.get_current_state();
+            if w_i == Scalar::zero() {
+                println!("w_i is 0, retrying...");
+                continue;
+            }
+            w.push(w_i);
+
+            let w_inv = w_i.invert();
+
+            G_prime = G_prime[..n_prime].iter()
+                .map(|g_prime| w_inv * g_prime)
+                .zip(
+                    G_prime[n_prime..].iter()
+                        .map(|g_prime| w_i * g_prime)
+                )
+                // Hadamard
+                .map(|(g_1, g_2)| g_1 + g_2)
+                .collect();
+
+            H_prime = H_prime[0..n_prime].iter()
+                .map(|h_prime| w_i * h_prime)
+                .zip(
+                    H_prime[n_prime..H_prime.len()].iter()
+                        .map(|h_prime| w_inv * h_prime)
+                )
+                // Hadamard
+                .map(|(h_1, h_2)| h_1 + h_2)
+                .collect();
+
+            a_prime = a_prime[0..n_prime].iter()
+                .map(|a_prime| w_i * a_prime)
+                .zip(
+                    a_prime[n_prime..a_prime.len()].iter()
+                        .map(|a_prime| w_inv * a_prime)
+                )
+                .map(|(a_1, a_2)| a_1 + a_2)
+                .collect();
+
+            b_prime = b_prime[0..n_prime].iter()
+                .map(|b_prime| w_inv * b_prime)
+                .zip(
+                    b_prime[n_prime..b_prime.len()].iter()
+                        .map(|b_prime| w_i * b_prime)
+                )
+                .map(|(a_1, a_2)| a_1 + a_2)
+                .collect();
+        }
+
+        return Ok(Bulletproof {
+            V: V.collect(),
+            A,
+            S,
+            T_1,
+            T_2,
+            tau_x,
+            mu,
+            L,
+            R,
+            a: a_prime[0],
+            b: b_prime[0],
+            t
+        })    
+    }
 }
 
 /// Checks a set of bulletproofs for validity
-pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Error> {
+pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failure::Error> {
     let mut max_length = 0;
     for proof in proofs {
+        let proof = proof.borrow();
         // Sanity checks
         if (proof.tau_x.reduce() != proof.tau_x)
             || (proof.mu.reduce() != proof.mu)
@@ -223,6 +516,8 @@ pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Er
     let mut y1 = Scalar::zero();
 
     for proof in proofs {
+        let proof = proof.borrow();
+
         let mut M = 0;
         // Find log2(M)
         let mut logM = 0;
@@ -352,20 +647,14 @@ pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Er
         z1 += weight * proof.mu;
 
         let acc = Point::multiscalar_mul(
-            (0..(2*rounds)).map(|i| {
-                if i % 2 == 0 {
-                    w[i/2] * w[i/2]
-                } else {
-                    w_inv[i/2] * w_inv[i/2]
-                }
-            }),
-            (0..(2*rounds)).map(|i| {
-                if i % 2 == 0 {
-                    L[i/2]
-                } else {
-                    R[i/2]
-                }
-            })
+            w.iter()
+                .map(|w| w * w)
+                .interleave(
+                    w_inv.iter()
+                        .map(|w_inv| w_inv * w_inv)
+                ),
+            L.iter()
+                .interleave(R.iter())
         );
 
         Z2 += weight * acc;
@@ -386,14 +675,9 @@ pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Er
     }
 
     let p = Point::multiscalar_mul(
-        (0..(2*maxMN)).map(|i| {
-            let i = i as usize;
-            if i % 2 == 0 {
-                z5[i/2]
-            } else {
-                z4[i/2]
-            }
-        }).map(|s| Scalar::zero() - s),
+        z5.iter()
+            .interleave(z4.iter())
+            .map(|s| Scalar::zero() - s),
         (0..(2*maxMN)).map(|i| {
             get_power(*MASK_BASEPOINT, i)
         })
@@ -418,13 +702,26 @@ pub fn verify_multiple<'a>(proofs: &[&'a Bulletproof]) -> Result<(), failure::Er
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use rand::RngCore;
+
     use crypto::ecc::{
         CompressedPoint,
         ScalarExt
     };
 
     #[test]
-    fn it_should_verify_correctly() {
+    fn it_should_generate_proofs_correctly() {
+        // 10 random amounts and masks
+        let proof = super::prove_multiple(&(0..10).map(|_| {
+            (rand::rngs::OsRng.next_u64(), Scalar::random(&mut rand::rngs::OsRng))
+        }).collect::<Vec<_>>()).unwrap();
+
+        super::verify_multiple(&[proof]).unwrap();
+    }
+
+    #[test]
+    fn it_should_verify_mainnet_proofs_correctly() {
         // The following is from mainnet transaction <cf8e4ffccd7f3604b4ec4be689a7d3669a8ea8bfa5e40d7bacf44a864ee75365>
         // https://explorer.unprll.cash/tx/cf8e4ffccd7f3604b4ec4be689a7d3669a8ea8bfa5e40d7bacf44a864ee75365
         let b = Bulletproof {
@@ -472,8 +769,6 @@ mod tests {
             t: Scalar::from_slice(&hex::decode("bfa2af387659ddb7fb4418fb8094a99f394012c5fe300c7cf8bf15cc91fd2d04").unwrap())
         };
 
-        let res = super::verify_multiple(&[&b]);
-        println!("{:?}", res);
-        assert!(res.is_ok());
+        super::verify_multiple(&[&b]).unwrap()
     }
 }
