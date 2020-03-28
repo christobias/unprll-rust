@@ -11,19 +11,6 @@ pub mod data_dir;
 pub mod difficulty;
 mod transaction;
 
-pub use block::{
-    Block,
-    BlockHeader
-};
-pub use traits::{
-    GetHash,
-    PreliminaryChecks
-};
-pub use transaction::{
-    Transaction,
-    TransactionPrefix,
-    TXExtra,
-    TXIn,
-    TXOut,
-    TXOutTarget
-};
+pub use block::{Block, BlockHeader};
+pub use traits::{GetHash, PreliminaryChecks};
+pub use transaction::{TXExtra, TXIn, TXOut, TXOutTarget, Transaction, TransactionPrefix};

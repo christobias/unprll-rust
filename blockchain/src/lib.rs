@@ -6,27 +6,12 @@
 use std::collections::VecDeque;
 
 use failure::format_err;
-use futures::{
-    Async,
-    Poll,
-    Stream,
-    task::Task
-};
+use futures::{task::Task, Async, Poll, Stream};
 use log::info;
 
-use blockchain_db::{
-    BlockchainDB,
-    Result
-};
-use common::{
-    Block,
-    GetHash,
-    PreliminaryChecks,
-    Transaction
-};
-use crypto::{
-    Hash256
-};
+use blockchain_db::{BlockchainDB, Result};
+use common::{Block, GetHash, PreliminaryChecks, Transaction};
+use crypto::Hash256;
 
 mod config;
 mod traits;
@@ -38,18 +23,18 @@ pub use traits::EmissionCurve;
 pub struct Blockchain<TCoin>
 where
     // TODO: Wait for trait aliases for simplifying external use
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     alternative_blocks: Vec<Block>,
     blockchain_db: BlockchainDB,
     coin_definition: TCoin,
     current_task: Option<Task>,
-    events: VecDeque<Block>
+    events: VecDeque<Block>,
 }
 
 impl<TCoin> Blockchain<TCoin>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     /// Creates a new Blockchain with the given configuration
     pub fn new(coin_definition: TCoin, config: &Config) -> Result<Self> {
@@ -58,7 +43,7 @@ where
             blockchain_db: BlockchainDB::new(&config.blockchain_db_config),
             coin_definition,
             current_task: None,
-            events: VecDeque::new()
+            events: VecDeque::new(),
         };
         if blockchain.blockchain_db.get_block_by_height(0).is_none() {
             // Add the genesis block
@@ -110,18 +95,26 @@ where
 
         // Print a log message for confirmation
         let (height, _) = self.get_tail()?;
-        info!("Added new block:\tBlock ID: {}\tBlock Height: {}", block.get_hash(), height);
+        info!(
+            "Added new block:\tBlock ID: {}\tBlock Height: {}",
+            block.get_hash(),
+            height
+        );
         Ok(())
     }
 
     /// Gets a block from the blockchain
-    pub fn get_block(&self, id: &Hash256) -> Option<Block> { self.blockchain_db.get_block_by_hash(id) }
+    pub fn get_block(&self, id: &Hash256) -> Option<Block> {
+        self.blockchain_db.get_block_by_hash(id)
+    }
 
     /// Gets the main chain's tail
     ///
     /// # Returns
     /// A `(block height, Block)` tuple
-    pub fn get_tail(&self) -> Result<(u64, Block)> { self.blockchain_db.get_tail() }
+    pub fn get_tail(&self) -> Result<(u64, Block)> {
+        self.blockchain_db.get_tail()
+    }
 
     // Transactions
     /// Gets a transaction with the given txid from confirmed transactions
@@ -137,16 +130,29 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
         // The coinbase transaction must have only one input and output
         if block.miner_tx.prefix.inputs.len() != 1 {
-            return Err(format_err!("Block {}'s coinbase transaction does not have exactly one input!", block.get_hash()));
+            return Err(format_err!(
+                "Block {}'s coinbase transaction does not have exactly one input!",
+                block.get_hash()
+            ));
         }
 
         if block.miner_tx.prefix.outputs.len() != 1 {
-            return Err(format_err!("Block {}'s coinbase transaction does not have exactly one output!", block.get_hash()));
+            return Err(format_err!(
+                "Block {}'s coinbase transaction does not have exactly one output!",
+                block.get_hash()
+            ));
         }
 
         // The coinbase amount must match the coin's emission curve
-        if block.miner_tx.prefix.outputs[0].amount != self.coin_definition.get_block_reward(block.header.major_version)? {
-            return Err(format_err!("Block {}'s coinbase transaction does not follow the coin's emission curve!", block.get_hash()));
+        if block.miner_tx.prefix.outputs[0].amount
+            != self
+                .coin_definition
+                .get_block_reward(block.header.major_version)?
+        {
+            return Err(format_err!(
+                "Block {}'s coinbase transaction does not follow the coin's emission curve!",
+                block.get_hash()
+            ));
         }
 
         Ok(())
@@ -155,7 +161,7 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
 impl<TCoin> Stream for Blockchain<TCoin>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     type Item = Block;
     type Error = ();
@@ -166,7 +172,7 @@ where
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         self.current_task = Some(futures::task::current());
         if let Some(event) = self.events.pop_front() {
-            return Ok(Async::Ready(Some(event)))
+            return Ok(Async::Ready(Some(event)));
         }
         Ok(Async::NotReady)
     }

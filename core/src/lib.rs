@@ -14,24 +14,22 @@ pub use config::Config;
 /// of Cryptonote (such as the blockchain and transaction mempool)
 pub struct CryptonoteCore<TCoin>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     blockchain: Blockchain<TCoin>,
-    txpool: TXPool
+    txpool: TXPool,
 }
 
 impl<TCoin> CryptonoteCore<TCoin>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     /// Creates a new CryptonoteCore with the given configuration
     pub fn new(coin_definition: TCoin, config: &Config) -> Self {
-        let blockchain = Blockchain::new(coin_definition, &config.blockchain_config).expect("Failed to initialize Blockchain");
-        let txpool     = TXPool::new();
-        CryptonoteCore {
-            blockchain,
-            txpool
-        }
+        let blockchain = Blockchain::new(coin_definition, &config.blockchain_config)
+            .expect("Failed to initialize Blockchain");
+        let txpool = TXPool::new();
+        CryptonoteCore { blockchain, txpool }
     }
     /// Get a reference to the underlying blockchain
     pub fn blockchain(&self) -> &Blockchain<TCoin> {

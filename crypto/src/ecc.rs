@@ -1,11 +1,8 @@
 mod from_c {
-    use std::os::raw::{
-        c_int,
-        c_uchar
-    };
+    use std::os::raw::{c_int, c_uchar};
 
     #[link(name = "hashtopoint", kind = "static")]
-    extern {
+    extern "C" {
         pub fn hash_to_point(data: *const c_uchar, result: *mut c_uchar) -> c_int;
     }
 }
@@ -24,14 +21,14 @@ pub trait ScalarExt {
     }
 }
 
-impl ScalarExt for Scalar { }
+impl ScalarExt for Scalar {}
 
-pub use curve25519_dalek::scalar::Scalar;
+pub use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED as BASEPOINT_COMPRESSED;
+pub use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as BASEPOINT;
+pub use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE as BASEPOINT_TABLE;
 pub use curve25519_dalek::edwards::CompressedEdwardsY as CompressedPoint;
 pub use curve25519_dalek::edwards::EdwardsPoint as Point;
-pub use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as BASEPOINT;
-pub use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED as BASEPOINT_COMPRESSED;
-pub use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE as BASEPOINT_TABLE;
+pub use curve25519_dalek::scalar::Scalar;
 
 /// Converts a given hash to a `Scalar`
 pub fn hash_to_scalar(hash: crate::hash::Hash256Data) -> Scalar {
@@ -41,7 +38,7 @@ pub fn hash_to_scalar(hash: crate::hash::Hash256Data) -> Scalar {
 }
 
 /// Converts a given hash to a `Point`
-/// 
+///
 /// Uses ge_fromfe_frombytes_vartime from Monero
 pub fn hash_to_point(hash: crate::hash::Hash256Data) -> Point {
     let mut result: [u8; 32] = [0; 32];
@@ -51,5 +48,8 @@ pub fn hash_to_point(hash: crate::hash::Hash256Data) -> Point {
         assert!(ret == 0);
     }
 
-    CompressedPoint::from_slice(&result).decompress().unwrap().mul_by_cofactor()
+    CompressedPoint::from_slice(&result)
+        .decompress()
+        .unwrap()
+        .mul_by_cofactor()
 }

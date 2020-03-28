@@ -1,8 +1,5 @@
 use futures::future::Future;
-use log::{
-    error,
-    info
-};
+use log::{error, info};
 use structopt::StructOpt;
 
 mod config;
@@ -23,16 +20,21 @@ fn main() {
 
     bin_common::logger::init(&config.bin_common_config, "unprll-miner").unwrap();
 
-    info!("{}", format!("{:?} - {:?}", coin_specific::COIN_NAME, coin_specific::VERSION));
+    info!(
+        "{}",
+        format!(
+            "{:?} - {:?}",
+            coin_specific::COIN_NAME,
+            coin_specific::VERSION
+        )
+    );
 
     match MinerStateMachine::new(&config) {
         Ok(miner_state_machine) => {
             runtime.spawn(miner_state_machine);
 
-            runtime.shutdown_on_idle()
-                .wait()
-                .unwrap()
-        },
-        Err(err) => error!("Failed to start miner: {}", err)
+            runtime.shutdown_on_idle().wait().unwrap()
+        }
+        Err(err) => error!("Failed to start miner: {}", err),
     }
 }

@@ -1,24 +1,14 @@
-use std::sync::{
-    Arc,
-    RwLock
-};
+use std::sync::{Arc, RwLock};
 
 use libp2p::{
     identity::Keypair,
     multiaddr::{Multiaddr, Protocol},
-    PeerId,
-    Swarm
+    PeerId, Swarm,
 };
 use log::info;
-use tokio::{
-    runtime::Runtime,
-    prelude::*
-};
+use tokio::{prelude::*, runtime::Runtime};
 
-use cryptonote_core::{
-    CryptonoteCore,
-    EmissionCurve
-};
+use cryptonote_core::{CryptonoteCore, EmissionCurve};
 
 mod config;
 mod cryptonote_protocol;
@@ -26,7 +16,11 @@ mod cryptonote_protocol;
 pub use config::Config;
 use cryptonote_protocol::CryptonoteNetworkBehavior;
 
-pub fn init<TCoin: 'static +  EmissionCurve + Send + Sync>(config: &Config, runtime: &mut Runtime, core: Arc<RwLock<CryptonoteCore<TCoin>>>) -> Result<(), std::io::Error> {
+pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
+    config: &Config,
+    runtime: &mut Runtime,
+    core: Arc<RwLock<CryptonoteCore<TCoin>>>,
+) -> Result<(), std::io::Error> {
     // Create a random PeerId
     let local_key = Keypair::generate_ed25519();
     let peer_id = PeerId::from(local_key.public());

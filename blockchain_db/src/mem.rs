@@ -1,30 +1,10 @@
-use std::{
-    collections::HashMap,
-    convert::TryInto,
-    fs::File,
-    io::ErrorKind,
-    path::PathBuf
-};
+use std::{collections::HashMap, convert::TryInto, fs::File, io::ErrorKind, path::PathBuf};
 
-use log::{
-    debug,
-    info,
-    warn
-};
-use serde::{
-    Serialize,
-    Deserialize
-};
+use log::{debug, info, warn};
+use serde::{Deserialize, Serialize};
 
-use common::{
-    Block,
-    GetHash,
-    Transaction
-};
-use crypto::{
-    Hash256,
-    KeyImage
-};
+use common::{Block, GetHash, Transaction};
+use crypto::{Hash256, KeyImage};
 
 use crate::config::Config;
 use crate::error::Result;
@@ -39,23 +19,23 @@ pub struct BlockchainMemDB {
 
     transactions: HashMap<Hash256, Transaction>,
     unconfirmed_transactions: HashMap<Hash256, Transaction>,
-    key_images: Vec<KeyImage>
+    key_images: Vec<KeyImage>,
 }
 
 impl BlockchainMemDB {
     pub fn new(config: &Config) -> BlockchainMemDB {
-        let mut db_path = config.db_data_directory.clone()
+        let mut db_path = config
+            .db_data_directory
+            .clone()
             .unwrap_or_else(common::data_dir::get_default_data_dir);
 
         db_path.push("memory");
 
         match std::fs::create_dir_all(&db_path) {
-            Ok(()) => {},
-            Err(e) => {
-                match e.kind() {
-                    ErrorKind::AlreadyExists => {},
-                    _ => panic!("{}", e)
-                }
+            Ok(()) => {}
+            Err(e) => match e.kind() {
+                ErrorKind::AlreadyExists => {}
+                _ => panic!("{}", e),
             },
         }
 
@@ -75,7 +55,7 @@ impl BlockchainMemDB {
                 block_heights: HashMap::new(),
                 key_images: Vec::new(),
                 transactions: HashMap::new(),
-                unconfirmed_transactions: HashMap::new()
+                unconfirmed_transactions: HashMap::new(),
             };
             db.sync().unwrap();
             db
@@ -95,9 +75,7 @@ impl BlockchainDBDriver for BlockchainMemDB {
 
         Ok(())
     }
-    fn set_safe_sync_mode(&self, _state: bool) {
-
-    }
+    fn set_safe_sync_mode(&self, _state: bool) {}
     fn reset(&mut self) {
         self.blocks.clear();
         self.block_heights.clear();
@@ -106,17 +84,22 @@ impl BlockchainDBDriver for BlockchainMemDB {
         self.unconfirmed_transactions.clear();
     }
     fn size(&self) -> u64 {
-        std::mem::size_of_val(&self).try_into().unwrap_or(u64::max_value())
+        std::mem::size_of_val(&self)
+            .try_into()
+            .unwrap_or(u64::max_value())
     }
-    fn fixup(&self) {
-
-    }
+    fn fixup(&self) {}
 
     // Block
     fn add_block(&mut self, block: Block) -> Result<()> {
         let block_id = block.get_hash();
         self.blocks.insert(block_id.clone(), block);
-        self.block_heights.insert(self.get_tail().map(|(current_height, _)| current_height + 1).unwrap_or(0), block_id);
+        self.block_heights.insert(
+            self.get_tail()
+                .map(|(current_height, _)| current_height + 1)
+                .unwrap_or(0),
+            block_id,
+        );
         self.sync()
     }
     fn get_block_by_height(&self, height: u64) -> Option<Block> {
@@ -132,22 +115,35 @@ impl BlockchainDBDriver for BlockchainMemDB {
     }
     fn get_tail(&self) -> Result<(u64, Block)> {
         let mut height: u64 = self.block_heights.iter().count().try_into().unwrap();
-        if height != 0 { height -= 1 }
+        if height != 0 {
+            height -= 1
+        }
 
-        Ok((height, self.get_block_by_height(height).ok_or_else(|| format_err!("Chain does not have any blocks"))?))
+        Ok((
+            height,
+            self.get_block_by_height(height)
+                .ok_or_else(|| format_err!("Chain does not have any blocks"))?,
+        ))
     }
     fn pop_block(&mut self) -> Result<Block> {
         let (height, _) = self.get_tail()?;
-        let block_id = self.block_heights.get(&height).ok_or_else(|| format_err!("Block at height {} does not exist", height))?;
+        let block_id = self
+            .block_heights
+            .get(&height)
+            .ok_or_else(|| format_err!("Block at height {} does not exist", height))?;
 
         // At this point, it can be assumed the block exists on both tables
-        let (_, block) = self.blocks.remove_entry(block_id).expect("Inconsistent state");
+        let (_, block) = self
+            .blocks
+            .remove_entry(block_id)
+            .expect("Inconsistent state");
         self.sync()?;
         Ok(block)
     }
 
     fn add_transaction(&mut self, transaction: Transaction) -> Result<()> {
-        self.transactions.insert(transaction.get_hash(), transaction);
+        self.transactions
+            .insert(transaction.get_hash(), transaction);
         self.sync()
     }
     fn get_transaction(&self, id: &Hash256) -> Option<Transaction> {

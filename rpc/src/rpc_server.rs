@@ -1,25 +1,16 @@
-use std::sync::{
-    Arc,
-    RwLock
-};
+use std::sync::{Arc, RwLock};
 
-use jsonrpc_v2::{
-    Error,
-    Params,
-    Server,
-    State
-};
+use jsonrpc_v2::{Error, Params, Server, State};
 
-use common::GetHash;
-use cryptonote_core::{
-    CryptonoteCore,
-    EmissionCurve
-};
 use crate::api_definitions::*;
+use common::GetHash;
+use cryptonote_core::{CryptonoteCore, EmissionCurve};
 
 type CoreRef<TCoin> = Arc<RwLock<CryptonoteCore<TCoin>>>;
 
-pub fn build_server<TCoin: 'static + EmissionCurve + Send + Sync>(core: CoreRef<TCoin>) -> Result<Server<CoreRef<TCoin>>, Error> {
+pub fn build_server<TCoin: 'static + EmissionCurve + Send + Sync>(
+    core: CoreRef<TCoin>,
+) -> Result<Server<CoreRef<TCoin>>, Error> {
     let s = Server::with_state(core)
         .with_method("get_stats", get_stats)
         .with_method("submit_block", submit_block)
@@ -29,19 +20,27 @@ pub fn build_server<TCoin: 'static + EmissionCurve + Send + Sync>(core: CoreRef<
     Ok(s)
 }
 
-fn get_stats<TCoin: EmissionCurve>(state: State<CoreRef<TCoin>>) -> Result<GetStatsResponse, Error> {
+fn get_stats<TCoin: EmissionCurve>(
+    state: State<CoreRef<TCoin>>,
+) -> Result<GetStatsResponse, Error> {
     let state = state.read().unwrap();
     let blockchain = state.blockchain();
 
     Ok(GetStatsResponse {
         difficulty: 1,
-        tail: blockchain.get_tail().map(|x| (x.0, x.1.get_hash().to_string())).unwrap(),
+        tail: blockchain
+            .get_tail()
+            .map(|x| (x.0, x.1.get_hash().to_string()))
+            .unwrap(),
         target_height: 9999,
-        tx_pool_count: 0
+        tx_pool_count: 0,
     })
 }
 
-fn submit_block<TCoin: EmissionCurve>(Params(params): Params<Vec<String>>, state: State<CoreRef<TCoin>>) -> Result<(), Error> {
+fn submit_block<TCoin: EmissionCurve>(
+    Params(params): Params<Vec<String>>,
+    state: State<CoreRef<TCoin>>,
+) -> Result<(), Error> {
     let block = bincode::deserialize(&hex::decode(&params[0])?)?;
 
     let mut state = state.write().unwrap();
@@ -52,7 +51,10 @@ fn submit_block<TCoin: EmissionCurve>(Params(params): Params<Vec<String>>, state
     Ok(())
 }
 
-fn get_blocks<TCoin: EmissionCurve>(Params(params): Params<GetBlocksRequest>, state: State<CoreRef<TCoin>>) -> Result<GetBlocksResponse, Error> {
+fn get_blocks<TCoin: EmissionCurve>(
+    Params(params): Params<GetBlocksRequest>,
+    state: State<CoreRef<TCoin>>,
+) -> Result<GetBlocksResponse, Error> {
     let start_height = params.from;
     // The end height is optional and will default to a specified value. If the request is too
     // large, the range is reduced
@@ -61,21 +63,26 @@ fn get_blocks<TCoin: EmissionCurve>(Params(params): Params<GetBlocksRequest>, st
     let state = state.read().unwrap();
     let blockchain = state.blockchain();
 
-    let end_height = params.to.unwrap_or_else(|| blockchain.get_tail().unwrap().0);
+    let end_height = params
+        .to
+        .unwrap_or_else(|| blockchain.get_tail().unwrap().0);
 
-    let blocks = blockchain.get_blocks(start_height, end_height)
+    let blocks = blockchain
+        .get_blocks(start_height, end_height)
         .ok_or(jsonrpc_v2::Error::INVALID_PARAMS)?;
 
     let transactions = blocks
         .iter()
-        .flat_map(|block| &block.tx_hashes).map(|txid| {
+        .flat_map(|block| &block.tx_hashes)
+        .map(|txid| {
             hex::encode(
-                bincode_epee::serialize(
-                    &blockchain.get_transaction(txid)
-                        .expect("The blockchain must always have all transactions from confirmed blocks")
-                ).unwrap()
+                bincode_epee::serialize(&blockchain.get_transaction(txid).expect(
+                    "The blockchain must always have all transactions from confirmed blocks",
+                ))
+                .unwrap(),
             )
-        }).collect();
+        })
+        .collect();
 
     Ok(GetBlocksResponse {
         blocks: blocks
@@ -83,6 +90,6 @@ fn get_blocks<TCoin: EmissionCurve>(Params(params): Params<GetBlocksRequest>, st
             .flat_map(|block| bincode_epee::serialize(&block))
             .map(hex::encode)
             .collect(),
-        transactions
+        transactions,
     })
 }

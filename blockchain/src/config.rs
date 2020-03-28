@@ -9,5 +9,5 @@ pub struct Config {
     // Structopt does not allow doc comments for flattened structs
     #[allow(missing_docs)]
     #[structopt(flatten)]
-    pub blockchain_db_config: BlockchainDBConfig
+    pub blockchain_db_config: BlockchainDBConfig,
 }

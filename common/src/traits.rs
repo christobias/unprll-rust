@@ -1,7 +1,4 @@
-use crypto::{
-    Digest,
-    Hash256
-};
+use crypto::{Digest, Hash256};
 
 /// Gets a hash of an implementor (usually the Keccak finalist (CNFastHash) hash of the
 /// implementor's binary serialization)

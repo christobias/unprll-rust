@@ -16,5 +16,5 @@ pub struct Config {
     pub daemon_address: String,
 
     #[structopt(flatten)]
-    pub bin_common_config: BinCommonConfig
+    pub bin_common_config: BinCommonConfig,
 }

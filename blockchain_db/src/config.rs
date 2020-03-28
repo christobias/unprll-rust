@@ -7,7 +7,6 @@ use structopt::StructOpt;
 #[structopt(rename_all = "kebab-case", name = "Unprll")]
 pub struct Config {
     // Blockchain DB
-
     /// Type of database
     #[structopt(long, default_value = "memory")]
     pub db_type: String,
@@ -15,5 +14,5 @@ pub struct Config {
     /// Path where database files should be stored
     /// If unset, uses the default data directory
     #[structopt(long)]
-    pub db_data_directory: Option<PathBuf>
+    pub db_data_directory: Option<PathBuf>,
 }

@@ -1,8 +1,5 @@
-use serde::{
-    Serialize,
-    Deserialize
-};
 use digest::Digest;
+use serde::{Deserialize, Serialize};
 
 use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
 
@@ -21,8 +18,8 @@ pub enum TXIn {
         /// Relative offsets of each output in the ring
         key_offsets: Vec<u64>,
         /// Key image of the sender's output
-        key_image: KeyImage
-    }
+        key_image: KeyImage,
+    },
 }
 
 /// Transaction output target
@@ -31,8 +28,8 @@ pub enum TXOutTarget {
     /// Send to specified public key
     ToKey {
         /// Target public key
-        key: PublicKey
-    }
+        key: PublicKey,
+    },
 }
 
 /// Transaction output
@@ -41,14 +38,14 @@ pub struct TXOut {
     /// Amount of coins received (0 for RingCT)
     pub amount: u64,
     /// Transaction output target
-    pub target: TXOutTarget
+    pub target: TXOutTarget,
 }
 
 /// Extra information added to the transaction
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXExtra {
     /// Public key of this transaction (for determining output secret key)
-    TxPublicKey(PublicKey)
+    TxPublicKey(PublicKey),
 }
 
 /// Transaction prefix
@@ -63,7 +60,7 @@ pub struct TransactionPrefix {
     /// List of outputs in this transaction
     pub outputs: Vec<TXOut>,
     /// Extra information tagged to this transaction
-    pub extra: Vec<TXExtra>
+    pub extra: Vec<TXExtra>,
 }
 
 /// A complete Transaction
@@ -74,8 +71,7 @@ pub struct Transaction {
     /// Signatures to prove ownership and authorize the transaction
     ///
     /// Usually empty for RingCT transactions
-    pub signatures: Vec<Vec<Signature>>
-    // rct_signatures
+    pub signatures: Vec<Vec<Signature>>, // rct_signatures
 }
 
 impl GetHash for Transaction {
@@ -98,8 +94,8 @@ impl GetHash for Transaction {
 
                     // Input
                     vec.extend_from_slice(&bincode_epee::serialize(height).unwrap());
-                },
-                _ => unimplemented!()
+                }
+                _ => unimplemented!(),
             }
         }
 
@@ -116,7 +112,9 @@ impl GetHash for Transaction {
                     vec.extend_from_slice(&bincode_epee::serialize(&0x02).unwrap());
 
                     // Public Key
-                    vec.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap());
+                    vec.extend_from_slice(
+                        &bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap(),
+                    );
                 }
             }
         }
@@ -130,7 +128,9 @@ impl GetHash for Transaction {
                     extra_buf.extend_from_slice(&bincode_epee::serialize(&0x01).unwrap());
 
                     // Public Key
-                    extra_buf.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap());
+                    extra_buf.extend_from_slice(
+                        &bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap(),
+                    );
                 }
             }
         }
@@ -148,9 +148,13 @@ impl GetHash for Transaction {
         }
         let mut hashes: Vec<Hash256Data> = Vec::with_capacity(3);
         // Prefix hash
-        hashes.push(CNFastHash::digest(&bincode::serialize(&self.prefix).unwrap()));
+        hashes.push(CNFastHash::digest(
+            &bincode::serialize(&self.prefix).unwrap(),
+        ));
         // Signatures hash
-        hashes.push(CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap()));
+        hashes.push(CNFastHash::digest(
+            &bincode::serialize(&self.signatures).unwrap(),
+        ));
         // TODO: RingCT Signatures hash
         // hashes[2] = CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap());
 

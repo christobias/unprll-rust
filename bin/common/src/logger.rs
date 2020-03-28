@@ -19,7 +19,7 @@ pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
         1 => log::LevelFilter::Info,
         2 => log::LevelFilter::Debug,
         3 => log::LevelFilter::Trace,
-        _ => panic!("Invalid log level")
+        _ => panic!("Invalid log level"),
     };
 
     let mut log_file_path = if let Some(custom_data_directory) = &config.log_directory {
@@ -35,7 +35,8 @@ pub fn init(config: &Config, binary_name: &str) -> Result<(), fern::InitError> {
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{color_line}[{date}][{target}][{level}{color_line}]\t{message}\x1B[0m",
-                color_line = format_args!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str()),
+                color_line =
+                    format_args!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str()),
                 date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 target = record.target(),
                 level = colors.color(record.level()),

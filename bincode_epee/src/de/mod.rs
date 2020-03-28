@@ -32,10 +32,7 @@ pub(crate) struct Deserializer<R, O: Options> {
 impl<'de, R: BincodeRead<'de>, O: Options> Deserializer<R, O> {
     /// Creates a new Deserializer with a given `Read`er and a size_limit.
     pub(crate) fn new(r: R, options: O) -> Deserializer<R, O> {
-        Deserializer {
-            reader: r,
-            options
-        }
+        Deserializer { reader: r, options }
     }
 
     fn read_bytes(&mut self, count: u64) -> Result<()> {
@@ -301,10 +298,8 @@ where
             {
                 if self.len > 0 {
                     self.len -= 1;
-                    let value = serde::de::DeserializeSeed::deserialize(
-                        seed,
-                        &mut *self.deserializer,
-                    )?;
+                    let value =
+                        serde::de::DeserializeSeed::deserialize(seed, &mut *self.deserializer)?;
                     Ok(Some(value))
                 } else {
                     Ok(None)
@@ -363,10 +358,8 @@ where
             {
                 if self.len > 0 {
                     self.len -= 1;
-                    let key = serde::de::DeserializeSeed::deserialize(
-                        seed,
-                        &mut *self.deserializer,
-                    )?;
+                    let key =
+                        serde::de::DeserializeSeed::deserialize(seed, &mut *self.deserializer)?;
                     Ok(Some(key))
                 } else {
                     Ok(None)
@@ -377,10 +370,7 @@ where
             where
                 V: serde::de::DeserializeSeed<'de>,
             {
-                let value = serde::de::DeserializeSeed::deserialize(
-                    seed,
-                    &mut *self.deserializer,
-                )?;
+                let value = serde::de::DeserializeSeed::deserialize(seed, &mut *self.deserializer)?;
                 Ok(value)
             }
 
@@ -393,7 +383,7 @@ where
 
         visitor.visit_map(Access {
             deserializer: self,
-            len
+            len,
         })
     }
 

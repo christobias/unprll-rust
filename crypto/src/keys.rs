@@ -1,13 +1,6 @@
-use crate::ecc::{
-    Scalar,
-    CompressedPoint,
-    BASEPOINT_TABLE
-};
+use crate::ecc::{CompressedPoint, Scalar, BASEPOINT_TABLE};
 use rand;
-use serde::{
-    Serialize,
-    Deserialize
-};
+use serde::{Deserialize, Serialize};
 
 /// An unsigned 256-bit value used as a private key. Represented with lowercase letters
 pub type SecretKey = Scalar;
@@ -20,12 +13,12 @@ pub type PublicKey = CompressedPoint;
 pub type KeyImage = PublicKey;
 
 /// A pair of a given secret key and its corresponding public key
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct KeyPair {
     /// The secret key
     pub secret_key: SecretKey,
     /// The public key
-    pub public_key: PublicKey
+    pub public_key: PublicKey,
 }
 
 impl KeyPair {
@@ -42,7 +35,7 @@ impl From<Scalar> for KeyPair {
         let public_key = (&secret_key * &BASEPOINT_TABLE).compress();
         Self {
             secret_key,
-            public_key
+            public_key,
         }
     }
 }
@@ -55,7 +48,13 @@ mod tests {
     #[test]
     fn it_works() {
         // Unprll donation wallet viewkey
-        let kp = KeyPair::from(Scalar::from_slice(&hex::decode("cae2b02f3a317b0ef61e694d899060f8434aef556bfe60239846533b52ab4608").unwrap()));
-        assert_eq!(hex::encode(kp.public_key.to_bytes()), "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0");
+        let kp = KeyPair::from(Scalar::from_slice(
+            &hex::decode("cae2b02f3a317b0ef61e694d899060f8434aef556bfe60239846533b52ab4608")
+                .unwrap(),
+        ));
+        assert_eq!(
+            hex::encode(kp.public_key.to_bytes()),
+            "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0"
+        );
     }
 }

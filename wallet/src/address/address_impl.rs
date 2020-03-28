@@ -1,18 +1,8 @@
-use std::convert::{
-    Into,
-    TryFrom
-};
+use std::convert::{Into, TryFrom};
 
-use crypto::{
-    Hash256Data,
-    PublicKey
-};
+use crypto::{Hash256Data, PublicKey};
 
-use super::{
-    Address,
-    AddressPrefixes,
-    AddressType
-};
+use super::{Address, AddressPrefixes, AddressType};
 
 impl<TPrefix: AddressPrefixes> Address<TPrefix> {
     pub fn standard(spend_public_key: PublicKey, view_public_key: PublicKey) -> Self {
@@ -20,7 +10,7 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
             address_type: AddressType::Standard,
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData
+            marker: std::marker::PhantomData,
         }
     }
 
@@ -29,16 +19,20 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
             address_type: AddressType::SubAddress,
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData
+            marker: std::marker::PhantomData,
         }
     }
 
-    pub fn integrated(spend_public_key: PublicKey, view_public_key: PublicKey, _payment_id: crypto::Hash256) -> Self {
+    pub fn integrated(
+        spend_public_key: PublicKey,
+        view_public_key: PublicKey,
+        _payment_id: crypto::Hash256,
+    ) -> Self {
         Address {
             address_type: AddressType::Integrated(),
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData
+            marker: std::marker::PhantomData,
         }
     }
 }
@@ -50,17 +44,23 @@ impl<TPrefix: AddressPrefixes> Into<String> for &Address<TPrefix> {
 
         // Tag
         let tag = match self.address_type {
-            AddressType::Standard     => TPrefix::STANDARD,
-            AddressType::SubAddress   => TPrefix::SUBADDRESS,
-            AddressType::Integrated() => TPrefix::INTEGRATED
+            AddressType::Standard => TPrefix::STANDARD,
+            AddressType::SubAddress => TPrefix::SUBADDRESS,
+            AddressType::Integrated() => TPrefix::INTEGRATED,
         };
         address.extend_from_slice(&bincode_epee::serialize(&tag).unwrap());
 
         // Spend public key
-        address.extend_from_slice(&bincode_epee::serialize(Hash256Data::from_slice(&self.spend_public_key.to_bytes())).unwrap());
+        address.extend_from_slice(
+            &bincode_epee::serialize(Hash256Data::from_slice(&self.spend_public_key.to_bytes()))
+                .unwrap(),
+        );
 
         // View public key
-        address.extend_from_slice(&bincode_epee::serialize(Hash256Data::from_slice(&self.view_public_key.to_bytes())).unwrap());
+        address.extend_from_slice(
+            &bincode_epee::serialize(Hash256Data::from_slice(&self.view_public_key.to_bytes()))
+                .unwrap(),
+        );
 
         // Base58
         base58_monero::encode_check(&address).unwrap()
@@ -73,7 +73,6 @@ impl<TPrefix: AddressPrefixes> Into<String> for Address<TPrefix> {
         reference.into()
     }
 }
-
 
 /// Get an Address from its string representation
 impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
@@ -94,8 +93,8 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
 
         // TODO: While we have deserialization support in bincode_epee now, PublicKey is
         //       serialized with its length, so we need to continue manual deserialization for now
-        let spend_public_key = PublicKey::from_slice(&data[(tag_end     )..(tag_end + 32)]);
-        let view_public_key  = PublicKey::from_slice(&data[(tag_end + 32)..(tag_end + 64)]);
+        let spend_public_key = PublicKey::from_slice(&data[(tag_end)..(tag_end + 32)]);
+        let view_public_key = PublicKey::from_slice(&data[(tag_end + 32)..(tag_end + 64)]);
 
         let tag: u64 = bincode_epee::deserialize(&data[0..tag_end]).unwrap();
 
@@ -104,7 +103,11 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
         } else if tag == TPrefix::SUBADDRESS {
             Ok(Address::subaddress(spend_public_key, view_public_key))
         } else if tag == TPrefix::INTEGRATED {
-            Ok(Address::integrated(spend_public_key, view_public_key, crypto::Hash256::null_hash()))
+            Ok(Address::integrated(
+                spend_public_key,
+                view_public_key,
+                crypto::Hash256::null_hash(),
+            ))
         } else {
             Err(failure::format_err!("Invalid address prefix"))
         }
@@ -113,14 +116,20 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_definitions::TestCoin;
     use super::*;
+    use crate::test_definitions::TestCoin;
 
     #[test]
     fn it_encodes_addresses_properly() {
         // Unprll Donation address
-        let spend_public_key = PublicKey::from_slice(&hex::decode("1ed50fe76f3fcd23c16493f8802b04f1c77eace5a54f969cc03dfa5cd3149457").unwrap());
-        let view_public_key =  PublicKey::from_slice(&hex::decode("36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0").unwrap());
+        let spend_public_key = PublicKey::from_slice(
+            &hex::decode("1ed50fe76f3fcd23c16493f8802b04f1c77eace5a54f969cc03dfa5cd3149457")
+                .unwrap(),
+        );
+        let view_public_key = PublicKey::from_slice(
+            &hex::decode("36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0")
+                .unwrap(),
+        );
 
         let address: Address<TestCoin> = Address::standard(spend_public_key, view_public_key);
         let address: String = address.into();
@@ -137,10 +146,7 @@ mod tests {
         let address: Address<TestCoin> = Address::try_from("UNP1Yn4gC4EBfxGByWr4CX8CLnvLRm3ZWEK7BEeiuwYe4SeVpqbRMZxKACWXQ1WCw3P2Zpt68rHZ94sehkF5o8Wn7NAC1PoBzh").unwrap();
 
         // Address type
-        assert_eq!(
-            address.address_type,
-            AddressType::Standard
-        );
+        assert_eq!(address.address_type, AddressType::Standard);
 
         // Spend public key
         assert_eq!(
@@ -161,10 +167,7 @@ mod tests {
         let address: Address<TestCoin> = Address::try_from("UNPStVLMoCzdHGE7EeVNuuWeReeJQXDeEWtRfaCQJ7oJSMr4bYVpreqcP36SjwiCHF86z9bbQecaqcW6yH5ndWx2M6t69dcEoE2").unwrap();
 
         // Address type
-        assert_eq!(
-            address.address_type,
-            AddressType::SubAddress
-        );
+        assert_eq!(address.address_type, AddressType::SubAddress);
 
         // Spend public key
         assert_eq!(

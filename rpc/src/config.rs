@@ -5,5 +5,5 @@ use structopt::StructOpt;
 pub struct Config {
     // RPC
     #[structopt(long, default_value = "21150")]
-    pub rpc_bind_port: u16
+    pub rpc_bind_port: u16,
 }

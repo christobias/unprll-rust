@@ -1,21 +1,9 @@
 use std::convert::TryFrom;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crypto::{
-    Hash256,
-    Hash256Data,
-    PublicKey
-};
-use crate::{
-    GetHash,
-    Transaction,
-    TransactionPrefix,
-    TXExtra,
-    TXIn,
-    TXOut,
-    TXOutTarget
-};
+use crate::{GetHash, TXExtra, TXIn, TXOut, TXOutTarget, Transaction, TransactionPrefix};
+use crypto::{Hash256, Hash256Data, PublicKey};
 
 /// Block Header
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
@@ -34,7 +22,6 @@ pub struct BlockHeader {
 
     // Unprll specific
     // TODO: Move these to coin_specific
-
     /// Miner's public spend key for usage in PoW verification
     pub miner_specific: PublicKey,
 
@@ -42,7 +29,7 @@ pub struct BlockHeader {
     pub iterations: u32,
 
     /// Checkpoint hashes in the PoW
-    pub hash_checkpoints: Vec<Hash256>
+    pub hash_checkpoints: Vec<Hash256>,
 }
 
 /// Block
@@ -55,7 +42,7 @@ pub struct Block {
     pub miner_tx: Transaction,
 
     /// List of transactions confirmed by this block
-    pub tx_hashes: Vec<Hash256>
+    pub tx_hashes: Vec<Hash256>,
 }
 
 impl Block {
@@ -153,14 +140,17 @@ impl GetHash for Block {
         vec.extend_from_slice(&bincode_epee::serialize(&self.header.prev_id).unwrap());
 
         // Miner specific
-        vec.extend_from_slice(&bincode_epee::serialize(&Hash256Data::from(self.header.miner_specific.to_bytes())).unwrap());
+        vec.extend_from_slice(
+            &bincode_epee::serialize(&Hash256Data::from(self.header.miner_specific.to_bytes()))
+                .unwrap(),
+        );
 
         // Proof of Work
         vec.extend_from_slice(&bincode_epee::serialize(&self.header.iterations).unwrap());
         vec.extend_from_slice(&bincode_epee::serialize(&self.header.hash_checkpoints).unwrap());
 
         // Get and serialize the tree hash of the block (including the miner transaction)
-        let mut hashes = vec!{self.miner_tx.get_hash()};
+        let mut hashes = vec![self.miner_tx.get_hash()];
         hashes.extend_from_slice(&self.tx_hashes);
         vec.extend_from_slice(crypto::tree_hash(&hashes).data());
 

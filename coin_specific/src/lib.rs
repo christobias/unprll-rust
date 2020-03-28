@@ -1,7 +1,4 @@
-use serde::{
-    Serialize,
-    Deserialize
-};
+use serde::{Deserialize, Serialize};
 
 pub mod emission;
 
@@ -12,7 +9,7 @@ pub const VERSION: (&str, &str) = ("v1.0.0", "Rusty Rabbit");
 pub struct Unprll;
 
 impl wallet::AddressPrefixes for Unprll {
-    const STANDARD: u64 = 0x0014_5023;   // UNP
+    const STANDARD: u64 = 0x0014_5023; // UNP
     const SUBADDRESS: u64 = 0x0021_1023; // UNPS
     const INTEGRATED: u64 = 0x0029_1023; // UNPi
 }

@@ -1,10 +1,10 @@
 use byteorder::ByteOrder;
 
 use blake_hash::Blake256;
-use jh_x86_64::Jh256;
 use groestl_aesni::Groestl256;
-use sha3::{Digest, Keccak256Full};
+use jh_x86_64::Jh256;
 use keccak;
+use sha3::{Digest, Keccak256Full};
 use skein_hash::Skein512;
 
 use crate::cast_256::{self, Cast256Key};
@@ -51,13 +51,13 @@ fn apply_hash(data: &[u8], n: u8) -> Hash256Data {
         1 => Groestl256::digest(data),
         2 => Jh256::digest(data),
         3 => Skein512::digest(data),
-        _ => panic!("This shouldn't happen!")
+        _ => panic!("This shouldn't happen!"),
     }
 }
 
 /// The RNJC hash function
 pub struct RNJC {
-    data_buffer: Vec<u8>
+    data_buffer: Vec<u8>,
 }
 
 impl RNJC {
@@ -79,7 +79,10 @@ impl RNJC {
 
         // Fill initializer buffer
         let mut text: [u32; (INIT_SIZE_BYTE / 4)] = [0; (INIT_SIZE_BYTE / 4)];
-        byteorder::LittleEndian::read_u32_into(&hash_state[64..(64 + INIT_SIZE_BYTE)], &mut text[..]);
+        byteorder::LittleEndian::read_u32_into(
+            &hash_state[64..(64 + INIT_SIZE_BYTE)],
+            &mut text[..],
+        );
         // Fill key
         byteorder::LittleEndian::read_u32_into(&hash_state[..32], &mut cast256_key[..]);
         let mut cast256_key = cast_256::get_key_schedule(cast256_key);
@@ -87,21 +90,30 @@ impl RNJC {
         // Fill scratchpad
         for i in 0..(MEMORY / INIT_SIZE_BYTE) {
             for j in 0..INIT_SIZE_BLK {
-                let res = &cast_256::encrypt(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &cast256_key);
-                text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))].copy_from_slice(res);
+                let res = &cast_256::encrypt(
+                    &text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))],
+                    &cast256_key,
+                );
+                text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]
+                    .copy_from_slice(res);
             }
-            byteorder::LittleEndian::write_u32_into(&text, &mut long_state[(INIT_SIZE_BYTE * i)..(INIT_SIZE_BYTE * (i + 1))]);
+            byteorder::LittleEndian::write_u32_into(
+                &text,
+                &mut long_state[(INIT_SIZE_BYTE * i)..(INIT_SIZE_BYTE * (i + 1))],
+            );
         }
 
         // Initialize register blocks
         for i in 0..16 {
-            reg_a[i] = hash_state[     i] ^ hash_state[32 + i];
+            reg_a[i] = hash_state[i] ^ hash_state[32 + i];
             reg_b[i] = hash_state[16 + i] ^ hash_state[48 + i];
         }
 
         for i in 0..ITER {
             let index: usize = e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE);
-            reg_c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))]);
+            reg_c.copy_from_slice(
+                &long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))],
+            );
             match (u32::from(reg_a[0]) ^ (i * recursion_depth)) & 3 {
                 0 => {
                     // CAST256 Encrypt
@@ -109,8 +121,11 @@ impl RNJC {
                     byteorder::LittleEndian::read_u32_into(&reg_a[..], &mut buf[..4]);
                     cast256_key = cast_256::get_key_schedule(buf);
                     byteorder::LittleEndian::read_u32_into(&reg_c[..], &mut buf[..4]);
-                    byteorder::LittleEndian::write_u32_into(&cast_256::encrypt(&buf[..4], &cast256_key), &mut reg_c[..]);
-                },
+                    byteorder::LittleEndian::write_u32_into(
+                        &cast_256::encrypt(&buf[..4], &cast256_key),
+                        &mut reg_c[..],
+                    );
+                }
                 1 => {
                     // Multiply
                     let a1: u128 = byteorder::LittleEndian::read_u64(&reg_a[..8]).into();
@@ -130,24 +145,28 @@ impl RNJC {
                     a1 = a1.wrapping_add(b1);
                     byteorder::LittleEndian::write_u64(&mut reg_b[..8], a0);
                     byteorder::LittleEndian::write_u64(&mut reg_b[8..], a1);
-                },
+                }
                 2 => {
                     let tmp = apply_hash(&reg_c, reg_a[0] & 3);
                     reg_c.copy_from_slice(&tmp[..16]);
-                },
+                }
                 3 => {
                     // CAST256 Decrypt
                     let mut buf: Cast256Key = [0; 8];
                     byteorder::LittleEndian::read_u32_into(&reg_a[..], &mut buf[..4]);
                     cast256_key = cast_256::get_key_schedule(buf);
                     byteorder::LittleEndian::read_u32_into(&reg_c[..], &mut buf[..4]);
-                    byteorder::LittleEndian::write_u32_into(&cast_256::decrypt(&buf[..4], &cast256_key), &mut reg_c[..]);
-                },
-                _ => unreachable!()
+                    byteorder::LittleEndian::write_u32_into(
+                        &cast_256::decrypt(&buf[..4], &cast256_key),
+                        &mut reg_c[..],
+                    );
+                }
+                _ => unreachable!(),
             }
             xor_blocks(&mut reg_b, &reg_c);
             swap_blocks(&mut reg_b, &mut reg_c);
-            long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))].copy_from_slice(&reg_c);
+            long_state[(CAST256_BLOCK_SIZE * index)..(CAST256_BLOCK_SIZE * (index + 1))]
+                .copy_from_slice(&reg_c);
             assert_eq!(index, e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE));
             swap_blocks(&mut reg_a, &mut reg_b);
         }
@@ -157,7 +176,9 @@ impl RNJC {
             for i in 0..RECURSION_ITER {
                 // Iteration 1
                 let j = e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE);
-                reg_c.copy_from_slice(&long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]);
+                reg_c.copy_from_slice(
+                    &long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))],
+                );
                 let tmp_hash = RNJC::rnjc_recursive(&reg_a, recursion_depth - 1);
                 if i % 2 == 0 {
                     reg_c.copy_from_slice(&tmp_hash[..CAST256_BLOCK_SIZE]);
@@ -166,7 +187,8 @@ impl RNJC {
                 }
                 xor_blocks(&mut reg_b, &reg_c);
                 swap_blocks(&mut reg_b, &mut reg_c);
-                long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))].copy_from_slice(&reg_c);
+                long_state[(CAST256_BLOCK_SIZE * j)..(CAST256_BLOCK_SIZE * (j + 1))]
+                    .copy_from_slice(&reg_c);
                 assert_eq!(j, e2i(&reg_a[..8], MEMORY / CAST256_BLOCK_SIZE));
                 swap_blocks(&mut reg_a, &mut reg_b);
             }
@@ -174,7 +196,10 @@ impl RNJC {
 
         // Fill initializer buffer
         let mut text: [u32; (INIT_SIZE_BYTE / 4)] = [0; (INIT_SIZE_BYTE / 4)];
-        byteorder::LittleEndian::read_u32_into(&hash_state[64..(64 + INIT_SIZE_BYTE)], &mut text[..]);
+        byteorder::LittleEndian::read_u32_into(
+            &hash_state[64..(64 + INIT_SIZE_BYTE)],
+            &mut text[..],
+        );
         // Fill key
         let mut cast256_key: Cast256Key = [0; 8];
         byteorder::LittleEndian::read_u32_into(&hash_state[32..64], &mut cast256_key[..]);
@@ -183,15 +208,32 @@ impl RNJC {
         // Fill scratchpad
         for i in 0..(MEMORY / INIT_SIZE_BYTE) {
             for j in 0..INIT_SIZE_BLK {
-                byteorder::LittleEndian::write_u32_into(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &mut reg_b);
-                xor_blocks(&mut reg_b, &long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)]);
-                byteorder::LittleEndian::read_u32_into(&reg_b, &mut text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]);
+                byteorder::LittleEndian::write_u32_into(
+                    &text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))],
+                    &mut reg_b,
+                );
+                xor_blocks(
+                    &mut reg_b,
+                    &long_state[(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE)
+                        ..(i * INIT_SIZE_BYTE + j * CAST256_BLOCK_SIZE + CAST256_BLOCK_SIZE)],
+                );
+                byteorder::LittleEndian::read_u32_into(
+                    &reg_b,
+                    &mut text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))],
+                );
 
-                let res = &cast_256::encrypt(&text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))], &cast256_key);
-                text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))].copy_from_slice(res);
+                let res = &cast_256::encrypt(
+                    &text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))],
+                    &cast256_key,
+                );
+                text[((CAST256_BLOCK_SIZE / 4) * j)..((CAST256_BLOCK_SIZE / 4) * (j + 1))]
+                    .copy_from_slice(res);
             }
         }
-        byteorder::LittleEndian::write_u32_into(&text[..], &mut hash_state[64..(64 + INIT_SIZE_BYTE)]);
+        byteorder::LittleEndian::write_u32_into(
+            &text[..],
+            &mut hash_state[64..(64 + INIT_SIZE_BYTE)],
+        );
 
         let mut tmp: [u64; 25] = [0; 25];
         byteorder::LittleEndian::read_u64_into(&hash_state, &mut tmp);
@@ -211,7 +253,7 @@ impl Digest for RNJC {
     type OutputSize = digest::generic_array::typenum::U32;
     fn new() -> Self {
         RNJC {
-            data_buffer: Vec::default()
+            data_buffer: Vec::default(),
         }
     }
     fn input<B: AsRef<[u8]>>(&mut self, data: B) {
@@ -247,13 +289,26 @@ mod tests {
     #[test]
     fn it_works() {
         let map: std::collections::HashMap<Vec<u8>, Vec<u8>> = [
-            ("6465206f6d6e69627573206475626974616e64756d",            "e3885ed5133600d18fae678619908d004a9e9d4b939bf16d3acefcd03c40b601"),
-            ("6162756e64616e732063617574656c61206e6f6e206e6f636574",  "f547066b684f510aa65416c30ea6353c9a61f9554826a440a3f3e47ee6ddeb4d"),
-            ("63617665617420656d70746f72",                            "cf60103f7fbf8da22b04b2780206cd77f34deab373a7e4a39b111670b9ba428a"),
-            ("6578206e6968696c6f206e6968696c20666974",                "30651d2bc3651887ba7e252ec79188addd5c12758b667d18616b743e64751fc4")
-        ].iter().map(|(data, hash)| {
-            (hex::decode(data).unwrap(), hex::decode(hash).unwrap())
-        }).collect();
+            (
+                "6465206f6d6e69627573206475626974616e64756d",
+                "e3885ed5133600d18fae678619908d004a9e9d4b939bf16d3acefcd03c40b601",
+            ),
+            (
+                "6162756e64616e732063617574656c61206e6f6e206e6f636574",
+                "f547066b684f510aa65416c30ea6353c9a61f9554826a440a3f3e47ee6ddeb4d",
+            ),
+            (
+                "63617665617420656d70746f72",
+                "cf60103f7fbf8da22b04b2780206cd77f34deab373a7e4a39b111670b9ba428a",
+            ),
+            (
+                "6578206e6968696c6f206e6968696c20666974",
+                "30651d2bc3651887ba7e252ec79188addd5c12758b667d18616b743e64751fc4",
+            ),
+        ]
+        .iter()
+        .map(|(data, hash)| (hex::decode(data).unwrap(), hex::decode(hash).unwrap()))
+        .collect();
 
         let child = std::thread::Builder::new()
             .stack_size(4 * 1024 * 1024)
@@ -261,7 +316,8 @@ mod tests {
                 for (data, hash) in map.iter() {
                     assert_eq!(RNJC::digest(data)[..], hash[..]);
                 }
-            }).unwrap();
+            })
+            .unwrap();
         child.join().unwrap();
     }
 }

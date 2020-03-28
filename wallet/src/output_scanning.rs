@@ -1,35 +1,19 @@
 use std::collections::HashMap;
 
-use log::{
-    info
-};
+use log::info;
 
-use common::{
-    Block,
-    GetHash,
-    Transaction,
-    TXExtra,
-    TXOutTarget
-};
-use crypto::{
-    CNFastHash,
-    Digest,
-    Hash256,
-    SecretKey
-};
+use common::{Block, GetHash, TXExtra, TXOutTarget, Transaction};
+use crypto::{CNFastHash, Digest, Hash256, SecretKey};
 
-use crate::{
-    AddressPrefixes,
-    SubAddressIndex,
-    Wallet
-};
+use crate::{AddressPrefixes, SubAddressIndex, Wallet};
 
 impl<TCoin> Wallet<TCoin>
 where
-    TCoin: AddressPrefixes
+    TCoin: AddressPrefixes,
 {
     pub fn get_last_checked_block(&self) -> (&u64, &Hash256) {
-        self.checked_blocks.iter()
+        self.checked_blocks
+            .iter()
             .max_by(|(height_1, _), (height_2, _)| height_1.cmp(height_2))
             .unwrap()
     }
@@ -37,9 +21,12 @@ where
         // Check if we're scanning an older block height, in which case
         // we'll need to rescan from that point (possibly due to a reorg)
         let block_id = block.get_hash();
-        if let Some((&split_height, _)) = self.checked_blocks.iter().find(|(_, id)| id == &&block_id) {
+        if let Some((&split_height, _)) =
+            self.checked_blocks.iter().find(|(_, id)| id == &&block_id)
+        {
             // Remove all blocks at and above the split point
-            self.checked_blocks.retain(|&height, _| height <= split_height);
+            self.checked_blocks
+                .retain(|&height, _| height <= split_height);
 
             // TODO: Remove output keys from blocks above split
         }
@@ -70,42 +57,47 @@ where
                         tx_pub_key = Some(key.decompress().unwrap());
                     }
                 }
-            };
+            }
 
             if let Some(tx_pub_key) = tx_pub_key {
                 match output.target {
                     TXOutTarget::ToKey { key } => {
                         // Compute the common "tx scalar"
                         // H_s(aR)
-                        let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest((self.view_keypair.secret_key * tx_pub_key).compress().as_bytes()));
+                        let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
+                            (self.view_keypair.secret_key * tx_pub_key)
+                                .compress()
+                                .as_bytes(),
+                        ));
 
                         // Do the original Cryptonote derivation first
                         // H_s(aR)G + B
-                        let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE + self.spend_keypair.public_key.decompress().unwrap();
+                        let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
+                            + self.spend_keypair.public_key.decompress().unwrap();
 
                         // Check if the output is to our standard address
                         let index_address_pair = if tx_pub_key == computed_pub_key {
                             // It's to our standard address
-                            Some((SubAddressIndex(0, 0), self.accounts.get(&0).unwrap().addresses().get(&0).unwrap()))
+                            Some((
+                                SubAddressIndex(0, 0),
+                                self.accounts.get(&0).unwrap().addresses().get(&0).unwrap(),
+                            ))
                         } else {
                             // Try the subaddress derivation next
                             // P - H_s(aR)G
-                            let computed_pub_key = key.decompress().unwrap() - &tx_scalar * &crypto::ecc::BASEPOINT_TABLE;
+                            let computed_pub_key = key.decompress().unwrap()
+                                - &tx_scalar * &crypto::ecc::BASEPOINT_TABLE;
                             let computed_pub_key = computed_pub_key.compress();
 
                             // Find the corresponding public spend key
                             self.accounts
                                 .iter()
                                 .flat_map(|(major, account)| {
-                                    account.addresses()
-                                        .iter()
-                                        .map(move |(minor, address)| {
-                                            (
-                                                SubAddressIndex(*major, *minor),
-                                                address
-                                            )
-                                        })
-                                }).find(|(_, address)| address.spend_public_key == computed_pub_key)
+                                    account.addresses().iter().map(move |(minor, address)| {
+                                        (SubAddressIndex(*major, *minor), address)
+                                    })
+                                })
+                                .find(|(_, address)| address.spend_public_key == computed_pub_key)
                         };
 
                         if let Some((index, _address)) = index_address_pair {
@@ -116,10 +108,14 @@ where
                                 tx_scalar + self.spend_keypair.secret_key
                             } else {
                                 // H_s(aR) + b + m_i
-                                tx_scalar + self.spend_keypair.secret_key + self.get_subaddress_secret_key(&index)
+                                tx_scalar
+                                    + self.spend_keypair.secret_key
+                                    + self.get_subaddress_secret_key(&index)
                             };
 
-                            self.accounts.get_mut(&index.0).unwrap()
+                            self.accounts
+                                .get_mut(&index.0)
+                                .unwrap()
                                 .increment_balance(output.amount)
                                 .expect("Incrementing balance");
 
@@ -136,10 +132,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use common::{
-        TransactionPrefix,
-        TXOut
-    };
+    use common::{TXOut, TransactionPrefix};
     use crypto::KeyPair;
 
     use crate::address::AddressType;
@@ -156,13 +149,13 @@ mod tests {
         [
             // The standard address recognizes inputs differently
             (0, 0),
-
             // Some subaddresses
             (1, 0),
             (1, 1),
             (100, 100),
-            (32767, 256)
-        ].iter()
+            (32767, 256),
+        ]
+        .iter()
         // Convert to SubAddressIndex
         .map(|(major, minor)| SubAddressIndex(*major, *minor))
         .for_each(|index| {
@@ -183,29 +176,30 @@ mod tests {
             };
 
             // H_s(rC)
-            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest((random_scalar * address.view_public_key.decompress().unwrap()).compress().as_bytes()));
+            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
+                (random_scalar * address.view_public_key.decompress().unwrap())
+                    .compress()
+                    .as_bytes(),
+            ));
 
             // H_s(rC)*G + D
-            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE + address.spend_public_key.decompress().unwrap();
+            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
+                + address.spend_public_key.decompress().unwrap();
 
             let t = Transaction {
                 prefix: TransactionPrefix {
                     version: 1,
                     unlock_delta: 0,
                     inputs: Vec::default(),
-                    outputs: vec!{
-                        TXOut {
-                            amount: 0,
-                            target: TXOutTarget::ToKey {
-                                key: tx_dest_key.compress()
-                            }
-                        }
-                    },
-                    extra: vec!{
-                        TXExtra::TxPublicKey(tx_pub_key.compress())
-                    }
+                    outputs: vec![TXOut {
+                        amount: 0,
+                        target: TXOutTarget::ToKey {
+                            key: tx_dest_key.compress(),
+                        },
+                    }],
+                    extra: vec![TXExtra::TxPublicKey(tx_pub_key.compress())],
                 },
-                signatures: Vec::new()
+                signatures: Vec::new(),
             };
 
             // Scan the transaction

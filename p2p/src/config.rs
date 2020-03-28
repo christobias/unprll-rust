@@ -7,5 +7,5 @@ pub struct Config {
     pub p2p_bind_port: u16,
 
     #[structopt(long)]
-    pub connect_to: Option<String>
+    pub connect_to: Option<String>,
 }

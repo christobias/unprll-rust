@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use curve25519_dalek::scalar::Scalar;
 
@@ -9,5 +9,5 @@ pub struct Signature {
     #[allow(missing_docs)]
     pub c: Scalar,
     #[allow(missing_docs)]
-    pub r: Scalar
+    pub r: Scalar,
 }

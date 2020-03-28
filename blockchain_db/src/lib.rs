@@ -1,19 +1,11 @@
 #![deny(missing_docs)]
 //! Interfaces for communicating to the backing database of a blockchain
 
-#[macro_use] extern crate failure;
+#[macro_use]
+extern crate failure;
 
-use crypto::{
-    Hash256,
-    KeyImage
-};
-use common::{
-    Block,
-    GetHash,
-    PreliminaryChecks,
-    Transaction,
-    TXIn
-};
+use common::{Block, GetHash, PreliminaryChecks, TXIn, Transaction};
+use crypto::{Hash256, KeyImage};
 
 mod config;
 mod error;
@@ -62,7 +54,7 @@ trait BlockchainDBDriver {
 /// 2. Each block connects to its parent
 /// 3. Confirmed transactions can only be added via blocks
 pub struct BlockchainDB {
-    db: Box<dyn BlockchainDBDriver + Sync + Send>
+    db: Box<dyn BlockchainDBDriver + Sync + Send>,
 }
 
 impl BlockchainDB {
@@ -71,8 +63,8 @@ impl BlockchainDB {
         BlockchainDB {
             db: match config.db_type.as_ref() {
                 "memory" => Box::new(mem::BlockchainMemDB::new(config)),
-                _ => panic!()
-            }
+                _ => panic!(),
+            },
         }
     }
 
@@ -93,7 +85,7 @@ impl BlockchainDB {
         self.db.add_transaction(block.miner_tx.clone())?;
         for tx in transactions.into_iter() {
             for input in tx.prefix.inputs.iter() {
-                if let TXIn::FromKey{key_image, ..} = input {
+                if let TXIn::FromKey { key_image, .. } = input {
                     self.db.add_key_image(*key_image)?;
                 }
             }
@@ -106,13 +98,21 @@ impl BlockchainDB {
     // Passthrough
 
     /// Gets the block at the given height
-    pub fn get_block_by_height(&self, height: u64) -> Option<Block> { self.db.get_block_by_height(height) }
+    pub fn get_block_by_height(&self, height: u64) -> Option<Block> {
+        self.db.get_block_by_height(height)
+    }
     /// Gets the block with the given hash
-    pub fn get_block_by_hash(&self, hash: &Hash256) -> Option<Block> { self.db.get_block_by_hash(hash) }
+    pub fn get_block_by_hash(&self, hash: &Hash256) -> Option<Block> {
+        self.db.get_block_by_hash(hash)
+    }
     /// Gets the current chain tail
-    pub fn get_tail(&self) -> Result<(u64, Block)> { self.db.get_tail() }
+    pub fn get_tail(&self) -> Result<(u64, Block)> {
+        self.db.get_tail()
+    }
     /// Gets the transaction with the given txid
-    pub fn get_transaction(&self, txid: &Hash256) -> Option<Transaction> { self.db.get_transaction(txid) }
+    pub fn get_transaction(&self, txid: &Hash256) -> Option<Transaction> {
+        self.db.get_transaction(txid)
+    }
 }
 
 impl PreliminaryChecks<Block> for BlockchainDB {
@@ -125,7 +125,10 @@ impl PreliminaryChecks<Block> for BlockchainDB {
         if let TXIn::Gen(h) = block.miner_tx.prefix.inputs[0] {
             height = h;
         } else {
-            return Err(format_err!("Block with ID {} does not have a genesis tx input", block_id));
+            return Err(format_err!(
+                "Block with ID {} does not have a genesis tx input",
+                block_id
+            ));
         }
 
         // 1. This new block connects to our existing chain
@@ -139,7 +142,10 @@ impl PreliminaryChecks<Block> for BlockchainDB {
         } else if block.header.prev_id != Hash256::null_hash() {
             return Err(format_err!("Block with ID {} (supposed to be our genesis block) does not have a previous ID of {}", block_id, Hash256::null_hash()));
         } else if height != 0 {
-            return Err(format_err!("Block with ID {} (supposed to be our genesis block) does not have a height of 0", block_id));
+            return Err(format_err!(
+                "Block with ID {} (supposed to be our genesis block) does not have a height of 0",
+                block_id
+            ));
         }
 
         // 2. We don't have that block already
@@ -167,7 +173,7 @@ impl PreliminaryChecks<Transaction> for BlockchainDB {
         }
 
         for input in transaction.prefix.inputs.iter() {
-            if let TXIn::FromKey{key_image, ..} = input {
+            if let TXIn::FromKey { key_image, .. } = input {
                 // 5. We don't have any of the key images already
                 if self.db.has_key_image(key_image) {
                     return Err(format_err!("Key image {:?} exists", *key_image));

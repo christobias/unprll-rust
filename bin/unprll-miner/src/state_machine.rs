@@ -1,40 +1,13 @@
+use futures::{future::Future, prelude::*, stream::Stream, try_ready};
+use log::{error, info};
 use std::convert::TryFrom;
-use std::time::{
-    Duration,
-    Instant,
-    SystemTime,
-    UNIX_EPOCH
-};
-use futures::{
-    future::Future,
-    prelude::*,
-    stream::Stream,
-    try_ready
-};
-use log::{
-    error,
-    info
-};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::timer::Interval;
 
 use async_jsonrpc_client::Error;
-use coin_specific::{
-    emission::EmissionCurve,
-    Unprll
-};
-use common::{
-    Block,
-    TXExtra,
-    TXIn,
-    TXOut,
-    TXOutTarget
-};
-use crypto::{
-    CNFastHash,
-    Digest,
-    Hash256,
-    KeyPair,
-};
+use coin_specific::{emission::EmissionCurve, Unprll};
+use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
+use crypto::{CNFastHash, Digest, Hash256, KeyPair};
 use rpc::api_definitions::*;
 use wallet::Address;
 
@@ -55,7 +28,7 @@ pub struct MinerStateMachine {
     last_prev_id: Option<String>,
     miner: Miner,
     miner_address: Address<Unprll>,
-    state: MinerState
+    state: MinerState,
 }
 
 use MinerState::*;
@@ -64,11 +37,14 @@ impl MinerStateMachine {
     pub fn new(config: &Config) -> Result<Self, failure::Error> {
         Ok(MinerStateMachine {
             client: Network::new(&config)?,
-            check_interval: Interval::new(Instant::now(), Duration::from_secs(config.check_interval)),
+            check_interval: Interval::new(
+                Instant::now(),
+                Duration::from_secs(config.check_interval),
+            ),
             last_prev_id: None,
             miner: Miner::new(),
             miner_address: Address::try_from(config.miner_address.as_str())?,
-            state: Idle
+            state: Idle,
         })
     }
 
@@ -79,7 +55,10 @@ impl MinerStateMachine {
         block.header.major_version = 9;
         block.header.minor_version = 9;
         block.header.timestamp = {
-            let mut t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let mut t = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             t = t % 600 + 300;
             t
         };
@@ -87,7 +66,11 @@ impl MinerStateMachine {
         block.header.miner_specific = self.miner_address.spend_public_key;
 
         // Miner transaction
-        block.miner_tx.prefix.inputs.push(TXIn::Gen(current_height + 1));
+        block
+            .miner_tx
+            .prefix
+            .inputs
+            .push(TXIn::Gen(current_height + 1));
 
         // HACK TODO FIXME: Make proper transaction output generation code. This
         //                  just exists to test output scanning
@@ -95,16 +78,25 @@ impl MinerStateMachine {
             let random_scalar = KeyPair::generate().secret_key;
             let tx_pub_key = &random_scalar * &crypto::ecc::BASEPOINT_TABLE;
 
-            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest((random_scalar * self.miner_address.view_public_key.decompress().unwrap()).compress().as_bytes()));
-            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE + self.miner_address.spend_public_key.decompress().unwrap();
+            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
+                (random_scalar * self.miner_address.view_public_key.decompress().unwrap())
+                    .compress()
+                    .as_bytes(),
+            ));
+            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
+                + self.miner_address.spend_public_key.decompress().unwrap();
 
             block.miner_tx.prefix.outputs.push(TXOut {
                 amount: Unprll.get_block_reward(block.header.major_version).unwrap(),
                 target: TXOutTarget::ToKey {
-                    key: tx_dest_key.compress()
-                }
+                    key: tx_dest_key.compress(),
+                },
             });
-            block.miner_tx.prefix.extra.push(TXExtra::TxPublicKey(tx_pub_key.compress()));
+            block
+                .miner_tx
+                .prefix
+                .extra
+                .push(TXExtra::TxPublicKey(tx_pub_key.compress()));
         }
 
         block
@@ -127,7 +119,7 @@ impl Future for MinerStateMachine {
             match &mut self.state {
                 Idle => {
                     return Ok(Async::NotReady);
-                },
+                }
                 RequestingStats(future) => {
                     let stats = try_ready!(future.map_err(|e| error!("{}", e)).poll());
 
@@ -152,7 +144,10 @@ impl Future for MinerStateMachine {
 
                         // Create a new block template and reset the miner
                         let (height, prev_id) = stats.tail;
-                        self.miner.set_block(Some(self.construct_block_template(height, Hash256::try_from(prev_id.as_str()).unwrap())));
+                        self.miner.set_block(Some(self.construct_block_template(
+                            height,
+                            Hash256::try_from(prev_id.as_str()).unwrap(),
+                        )));
                         self.miner.set_difficulty(stats.difficulty);
 
                         // Update our last seen tail
@@ -160,13 +155,13 @@ impl Future for MinerStateMachine {
                     }
 
                     self.state = Mining;
-                },
+                }
                 Mining => {
                     let block = try_ready!(self.miner.poll());
 
                     info!("Block found!");
                     self.state = SubmittingBlock(Box::new(self.client.submit_block(block)))
-                },
+                }
                 SubmittingBlock(future) => {
                     try_ready!(future.map_err(|e| error!("{}", e)).poll());
 

@@ -1,21 +1,13 @@
 use byteorder::ByteOrder;
 
-use crypto::{
-    CNFastHash,
-    Digest,
-    SecretKey
-};
+use crypto::{CNFastHash, Digest, SecretKey};
 
+use super::{Address, AddressPrefixes, SubAddressIndex};
 use crate::Wallet;
-use super::{
-    Address,
-    AddressPrefixes,
-    SubAddressIndex
-};
 
 impl<TCoin> Wallet<TCoin>
 where
-    TCoin: AddressPrefixes
+    TCoin: AddressPrefixes,
 {
     pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Address<TCoin> {
         if index == &SubAddressIndex(0, 0) {
@@ -26,7 +18,8 @@ where
         let subaddress_public_key = &subaddress_secret_key * &crypto::ecc::BASEPOINT_TABLE;
 
         // Subaddress spend public key
-        let spend_public_key = self.spend_keypair.public_key.decompress().unwrap() + subaddress_public_key;
+        let spend_public_key =
+            self.spend_keypair.public_key.decompress().unwrap() + subaddress_public_key;
 
         // Subaddress view public key
         let view_public_key = self.view_keypair.secret_key * spend_public_key;
@@ -38,7 +31,10 @@ where
         Address::subaddress(spend_public_key, view_public_key)
     }
 
-    pub fn get_subaddress_secret_key(&self, SubAddressIndex(major, minor): &SubAddressIndex) -> SecretKey {
+    pub fn get_subaddress_secret_key(
+        &self,
+        SubAddressIndex(major, minor): &SubAddressIndex,
+    ) -> SecretKey {
         // m = H_s("SubAddr" | a | major | minor)
         // Length of buffer = length("SubAddr\0") + length(public_key) + 2 * length(u32)
         //                  = 8 + 32 + 8 = 48
@@ -61,14 +57,17 @@ where
 mod tests {
     use crypto::ScalarExt;
 
+    use super::*;
     use crate::test_definitions::TestCoin;
     use crate::Wallet;
-    use super::*;
 
     #[test]
     fn it_generates_subaddress_keys_correctly() {
         // This given key is in public view, hence DO NOT use this wallet for storing any coins
-        let wallet: Wallet<TestCoin> = Wallet::from(SecretKey::from_slice(&hex::decode("67a2547fde618d6fbd4d450b28da58feb6836cf223c2f97980731448bb84c100").unwrap()));
+        let wallet: Wallet<TestCoin> = Wallet::from(SecretKey::from_slice(
+            &hex::decode("67a2547fde618d6fbd4d450b28da58feb6836cf223c2f97980731448bb84c100")
+                .unwrap(),
+        ));
 
         [
             ((0, 1), "UNPStRsRsLKPPysVGYVe9fSHqxbAn4sN1RaRGVhGb4G5gpmt9JUzNhLaXndsFRUN3nGa6kzk7cViJBgAuB1dtBtjDKsTvY66vCL"),
@@ -82,7 +81,7 @@ mod tests {
         }).map(|(index, address_str)| -> (String, _) {
             // Get the address at that index
             let address = wallet.get_address_for_index(&index);
-            (address.into(), address_str.to_string())
+            (address.into(), (*address_str).to_string())
         }).for_each(|(computed_address, expected_address)| {
             // Should be equal to what it is on mainnet
             assert_eq!(

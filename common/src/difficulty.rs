@@ -1,8 +1,6 @@
 use byteorder::ByteOrder;
 
-use crypto::{
-    Hash256Data
-};
+use crypto::Hash256Data;
 
 /// Wide u128 Multiplication
 /// Returns the high and low bytes from a u128 * u128 multiplication
@@ -104,19 +102,21 @@ mod tests {
             // Multiply by 0
             (0, 0, (0, 0)),
             (std::u128::MAX, 0, (0, 0)),
-
             // Multiply by 1
             (20, 1, (20, 0)),
-
             // Multiply some numbers (nothing really special about these numbers, just some keyboard mashing)
-            (943_850_348_584_379, 547_653_733_455_224, (516_903_167_225_249_755_920_782_345_896, 0)),
-
+            (
+                943_850_348_584_379,
+                547_653_733_455_224,
+                (516_903_167_225_249_755_920_782_345_896, 0),
+            ),
             // Handle u128 overflow
             (std::u128::MAX, 2, (std::u128::MAX - 1, 1)),
-
             // Stress test (maximum possible result)
             (std::u128::MAX, std::u128::MAX, (1, std::u128::MAX - 1)),
-        ].iter().for_each(|(a, b, result)| {
+        ]
+        .iter()
+        .for_each(|(a, b, result)| {
             assert_eq!(widening_mul(*a, *b), *result);
         });
     }
@@ -125,42 +125,80 @@ mod tests {
     fn difficulty_check_works_for_valid_hashes() {
         [
             // Null hashes will always satisfy any difficulty. Including the maximum possible (u128::MAX)
-            ("0000000000000000000000000000000000000000000000000000000000000000", std::u128::MAX),
-
+            (
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                std::u128::MAX,
+            ),
             // The largest hash will satisfy the smallest difficulty
-            ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 1),
-
+            (
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                1,
+            ),
             // Live difficulty and hash values from the Unprll mainnet
-            ("7a03d4485600699035f5032f199dec212db1dca1ae386bfb141e1b52814f0000", 126_000),
-            ("b8ec4fec0e35df8656e2617f52f9c6a2e269cf14de3b1626fa3bcfa888550000",  56_800),
-            ("b3934917894808505d73785108461ccc3968600da02e1c2eaf26897f2bb60000",  45_200),
-            ("bd1e641c2eb5fb7aa47dcb484102e6578fe4c9d07bc983468082107b101b0100",  25_600),
-            ("66082ac23a926b7cb329f52a49cd60f0f69f419890db681f8d67eab01c510000",  61_700)
-        ].iter()
-            .map(|(hash, difficulty)| (Hash256::try_from(*hash).unwrap(), difficulty))
-            .for_each(|(hash, difficulty)| {
-                println!("Hash: {}, Difficulty: {}", hash, difficulty);
-                assert!(check_hash_for_difficulty(hash.data(), *difficulty));
-            });
+            (
+                "7a03d4485600699035f5032f199dec212db1dca1ae386bfb141e1b52814f0000",
+                126_000,
+            ),
+            (
+                "b8ec4fec0e35df8656e2617f52f9c6a2e269cf14de3b1626fa3bcfa888550000",
+                56_800,
+            ),
+            (
+                "b3934917894808505d73785108461ccc3968600da02e1c2eaf26897f2bb60000",
+                45_200,
+            ),
+            (
+                "bd1e641c2eb5fb7aa47dcb484102e6578fe4c9d07bc983468082107b101b0100",
+                25_600,
+            ),
+            (
+                "66082ac23a926b7cb329f52a49cd60f0f69f419890db681f8d67eab01c510000",
+                61_700,
+            ),
+        ]
+        .iter()
+        .map(|(hash, difficulty)| (Hash256::try_from(*hash).unwrap(), difficulty))
+        .for_each(|(hash, difficulty)| {
+            println!("Hash: {}, Difficulty: {}", hash, difficulty);
+            assert!(check_hash_for_difficulty(hash.data(), *difficulty));
+        });
     }
 
     #[test]
     fn difficulty_check_fails_for_invalid_hashes() {
         [
             // The largest hash will not satisfy any difficulty except 1
-            ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 2),
-
+            (
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                2,
+            ),
             // Live difficulty and hash values from the Unprll mainnet
-            ("97b18b0e547892c518f253f2f8f3debdfa50a1f5d727540032fcbdee57e324fd", 126_000),
-            ("cbc16aa0a9c9bc4f68902473a868f59ad4654d70173c79c764a6cf3f81ce6c4a",  56_800),
-            ("a50b0e393edb3ff51490b7745bb2fcba0185a195088a2bccf3e819da860a17be",  45_200),
-            ("23018812158f3a31066d1c464e60e5a6a64a3bbc7ee50aaee775061be7a379e3",  25_600),
-            ("ca0777d4b106820942dcab204cfcfd5d3e21671a2398a08772cb41fead395520",  61_700)
-        ].iter()
-            .map(|(hash, difficulty)| (Hash256::try_from(*hash).unwrap(), difficulty))
-            .for_each(|(hash, difficulty)| {
-                println!("Hash: {}, Difficulty: {}", hash, difficulty);
-                assert!(!check_hash_for_difficulty(hash.data(), *difficulty));
-            });
+            (
+                "97b18b0e547892c518f253f2f8f3debdfa50a1f5d727540032fcbdee57e324fd",
+                126_000,
+            ),
+            (
+                "cbc16aa0a9c9bc4f68902473a868f59ad4654d70173c79c764a6cf3f81ce6c4a",
+                56_800,
+            ),
+            (
+                "a50b0e393edb3ff51490b7745bb2fcba0185a195088a2bccf3e819da860a17be",
+                45_200,
+            ),
+            (
+                "23018812158f3a31066d1c464e60e5a6a64a3bbc7ee50aaee775061be7a379e3",
+                25_600,
+            ),
+            (
+                "ca0777d4b106820942dcab204cfcfd5d3e21671a2398a08772cb41fead395520",
+                61_700,
+            ),
+        ]
+        .iter()
+        .map(|(hash, difficulty)| (Hash256::try_from(*hash).unwrap(), difficulty))
+        .for_each(|(hash, difficulty)| {
+            println!("Hash: {}, Difficulty: {}", hash, difficulty);
+            assert!(!check_hash_for_difficulty(hash.data(), *difficulty));
+        });
     }
 }

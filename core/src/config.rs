@@ -9,5 +9,5 @@ pub struct Config {
     // We can't document flattened structs
     #[allow(missing_docs)]
     #[structopt(flatten)]
-    pub blockchain_config: BlockchainConfig
+    pub blockchain_config: BlockchainConfig,
 }

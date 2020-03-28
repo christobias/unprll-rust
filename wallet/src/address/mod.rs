@@ -1,13 +1,8 @@
 // TODO: Probably move this to common so libraries don't have to link to wallet
 
-use serde::{
-    Serialize,
-    Deserialize
-};
+use serde::{Deserialize, Serialize};
 
-use crypto::{
-    PublicKey
-};
+use crypto::PublicKey;
 
 mod address_impl;
 mod subaddress_impl;
@@ -22,7 +17,7 @@ pub trait AddressPrefixes {
 pub enum AddressType {
     Standard,
     SubAddress,
-    Integrated()
+    Integrated(),
 }
 
 impl Default for AddressType {
@@ -39,7 +34,7 @@ pub struct Address<TPrefix: AddressPrefixes> {
     pub spend_public_key: PublicKey,
     pub view_public_key: PublicKey,
 
-    marker: std::marker::PhantomData<TPrefix>
+    marker: std::marker::PhantomData<TPrefix>,
 }
 
 #[derive(Debug, Eq, Clone, Hash, PartialEq, Serialize, Deserialize)]

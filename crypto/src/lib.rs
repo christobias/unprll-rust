@@ -18,8 +18,8 @@ pub mod ecc;
 pub use digest::Digest;
 
 pub use ecc::ScalarExt;
-pub use hash::{Hash256,Hash256Data,CNFastHash};
-pub use keys::{SecretKey,PublicKey,KeyPair,KeyImage};
+pub use hash::{CNFastHash, Hash256, Hash256Data};
+pub use keys::{KeyImage, KeyPair, PublicKey, SecretKey};
 pub use rnjc::RNJC;
 pub use signature::Signature;
 pub use tree_hash::tree_hash;

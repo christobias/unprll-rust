@@ -1,45 +1,17 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::sync::{
-    Arc,
-    RwLock
-};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use failure::{
-    Error,
-    format_err
-};
-use futures::{
-    Async,
-    future::{
-        Future
-    },
-    Poll,
-    stream::Stream,
-    try_ready
-};
-use log::{
-    debug,
-    error
-};
+use failure::{format_err, Error};
+use futures::{future::Future, stream::Stream, try_ready, Async, Poll};
+use log::{debug, error};
 use tokio::timer::Interval;
 
-use async_jsonrpc_client::{
-    JSONRPCClient,
-    serde_json
-};
-use coin_specific::{
-    Unprll
-};
-use common::{
-    GetHash,
-    Transaction
-};
-use rpc::api_definitions::{
-    GetBlocksRequest,
-    GetBlocksResponse
-};
+use async_jsonrpc_client::{serde_json, JSONRPCClient};
+use coin_specific::Unprll;
+use common::{GetHash, Transaction};
+use rpc::api_definitions::{GetBlocksRequest, GetBlocksResponse};
 use wallet::Wallet;
 
 use crate::config::Config;
@@ -48,7 +20,7 @@ pub struct WalletStore {
     client: JSONRPCClient,
     refresh_interval: Interval,
     wallet_dir: std::path::PathBuf,
-    wallets: HashMap<String, Arc<RwLock<Wallet<Unprll>>>>
+    wallets: HashMap<String, Arc<RwLock<Wallet<Unprll>>>>,
 }
 
 impl WalletStore {
@@ -57,7 +29,7 @@ impl WalletStore {
             client: JSONRPCClient::new(&config.daemon_address).unwrap(),
             refresh_interval: Interval::new_interval(Duration::from_secs(10)),
             wallet_dir: config.wallet_dir,
-            wallets: HashMap::new()
+            wallets: HashMap::new(),
         };
 
         std::fs::create_dir_all(&ws.wallet_dir).unwrap();
@@ -67,9 +39,10 @@ impl WalletStore {
 
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet<Unprll>) -> Result<(), Error> {
         if self.wallets.contains_key(&wallet_name) {
-            return Err(format_err!("Wallet {} exists in memory", wallet_name))
+            return Err(format_err!("Wallet {} exists in memory", wallet_name));
         }
-        self.wallets.insert(wallet_name.clone(), Arc::from(RwLock::new(wallet)));
+        self.wallets
+            .insert(wallet_name.clone(), Arc::from(RwLock::new(wallet)));
         self.refresh_wallet(&wallet_name);
         Ok(())
     }
@@ -99,7 +72,10 @@ impl WalletStore {
     }
 
     pub fn get_wallet(&self, wallet_name: &str) -> Result<Arc<RwLock<Wallet<Unprll>>>, Error> {
-        self.wallets.get(wallet_name).cloned().ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
+        self.wallets
+            .get(wallet_name)
+            .cloned()
+            .ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
     }
 
     pub fn refresh_wallet(&self, wallet_name: &str) {
@@ -114,35 +90,42 @@ impl WalletStore {
             let wallet = wallet.clone();
 
             tokio::spawn(
-                self.client.send_jsonrpc_request(
-                    "get_blocks",
-                    serde_json::to_value(GetBlocksRequest {
-                        from: last_checked_height,
-                        to: None
-                    }).unwrap()
-                ).map(|response| {
-                    let response: GetBlocksResponse = response.unwrap();
-                    // TODO: Move this to a #[serde(with)] method
-                    (
-                        response.blocks
-                            .into_iter()
-                            .flat_map(hex::decode)
-                            .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
-                            .collect(),
-                        response.transactions
-                            .into_iter()
-                            .flat_map(hex::decode)
-                            .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
-                            .map(|tx: Transaction| (tx.get_hash(), tx))
-                            .collect()
+                self.client
+                    .send_jsonrpc_request(
+                        "get_blocks",
+                        serde_json::to_value(GetBlocksRequest {
+                            from: last_checked_height,
+                            to: None,
+                        })
+                        .unwrap(),
                     )
-                }).map(move |(blocks, transactions): (Vec<_>, HashMap<_, _>)| {
-                    blocks.iter().for_each(|block| {
-                        wallet.write().unwrap().scan_block(block, &transactions);
-                    });
-                }).map_err(|error| {
-                    error!("Failed to refresh wallet: {}", error);
-                })
+                    .map(|response| {
+                        let response: GetBlocksResponse = response.unwrap();
+                        // TODO: Move this to a #[serde(with)] method
+                        (
+                            response
+                                .blocks
+                                .into_iter()
+                                .flat_map(hex::decode)
+                                .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
+                                .collect(),
+                            response
+                                .transactions
+                                .into_iter()
+                                .flat_map(hex::decode)
+                                .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
+                                .map(|tx: Transaction| (tx.get_hash(), tx))
+                                .collect(),
+                        )
+                    })
+                    .map(move |(blocks, transactions): (Vec<_>, HashMap<_, _>)| {
+                        blocks.iter().for_each(|block| {
+                            wallet.write().unwrap().scan_block(block, &transactions);
+                        });
+                    })
+                    .map_err(|error| {
+                        error!("Failed to refresh wallet: {}", error);
+                    }),
             );
         }
     }
@@ -154,7 +137,9 @@ impl Future for WalletStore {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         try_ready!(self.refresh_interval.poll().map_err(|_| {}));
-        self.wallets.keys().for_each(|wallet_name| self.refresh_wallet(&wallet_name));
+        self.wallets
+            .keys()
+            .for_each(|wallet_name| self.refresh_wallet(&wallet_name));
 
         futures::task::current().notify();
         Ok(Async::NotReady)

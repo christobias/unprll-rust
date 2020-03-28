@@ -15,5 +15,5 @@ pub struct Config {
     pub daemon_address: String,
 
     #[structopt(long)]
-    pub miner_address: String
+    pub miner_address: String,
 }
