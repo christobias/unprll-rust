@@ -1,35 +1,28 @@
 //! # Ring Confidential Transactions (RingCT)
 //! This implementation is based on the whitepaper
 
-#[macro_use] extern crate failure;
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate failure;
+#[macro_use]
+extern crate itertools;
+#[macro_use]
+extern crate lazy_static;
+
+use std::ops::{Index, IndexMut};
+
+use serde::{Deserialize, Serialize};
 
 use crypto::{
-    curve25519_dalek::edwards::EdwardsBasepointTable,
-    ecc::{
-        CompressedPoint,
-        Point
-    }
+    curve25519_dalek::{edwards::EdwardsBasepointTable, traits::MultiscalarMul},
+    ecc::{CompressedPoint, Point, Scalar, BASEPOINT},
 };
-
-pub type Matrix<T> = Vec<Vec<T>>;
-
-pub trait MatrixExt<T> {
-    fn from_fn(rows: usize, cols: usize, closure: impl Fn(usize, usize) -> T) -> Matrix<T> {
-        (0..rows).map(|row| {
-            (0..cols).map(|col| closure(row, col)).collect()
-        }).collect()
-    }
-}
-
-impl<T> MatrixExt<T> for Matrix<T> { }
 
 lazy_static! {
     /// Mask basepoint `H`
     ///
     /// Effectively `to_point(cn_fast_hash(G))` where `G` is our basepoint
     // TODO: Figure out if hardcoding this can be avoided to figure out how it's computed
-    pub static ref MASK_BASEPOINT: Point = CompressedPoint::from_slice(
+    pub static ref AMOUNT_BASEPOINT: Point = CompressedPoint::from_slice(
         &[0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf,
           0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea,
           0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9,
@@ -37,7 +30,90 @@ lazy_static! {
     ).decompress().unwrap();
 
     /// Mask basepoint `H` in `EdwardsBasepointTable` form
-    pub static ref MASK_BASEPOINT_TABLE: EdwardsBasepointTable = EdwardsBasepointTable::create(&MASK_BASEPOINT);
+    pub static ref AMOUNT_BASEPOINT_TABLE: EdwardsBasepointTable = EdwardsBasepointTable::create(&AMOUNT_BASEPOINT);
+}
+
+/// Pedersen Commitments
+///
+/// `C = aG + bH`
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Commitment {
+    /// The value being committed to `b`
+    value: Scalar,
+    /// The blinding factor `a`
+    mask: Scalar,
+}
+
+impl Commitment {
+    /// Generate a commitment to the given value using a random mask
+    pub fn commit_to_value(value: u64) -> Commitment {
+        Commitment {
+            value: Scalar::from(value),
+            mask: Scalar::random(&mut rand::rngs::OsRng),
+        }
+    }
+
+    /// Returns the result of the commitment
+    ///
+    /// Computes `C` where `C = aG + bH`
+    pub fn into_public(self) -> Point {
+        Point::multiscalar_mul(&[self.mask, self.value], &[BASEPOINT, *AMOUNT_BASEPOINT])
+    }
+}
+
+/// Non-zero 2D array of data
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Matrix<T>(Vec<Vec<T>>);
+
+impl<T> Matrix<T> {
+    pub fn from_fn(rows: usize, cols: usize, closure: impl Fn(usize, usize) -> T) -> Matrix<T> {
+        assert_ne!(rows, 0);
+        assert_ne!(cols, 0);
+        Matrix(
+            (0..rows)
+                .map(|row| (0..cols).map(|col| closure(row, col)).collect())
+                .collect(),
+        )
+    }
+
+    pub fn from_iter(rows: usize, cols: usize, iter: impl IntoIterator<Item = T>) -> Matrix<T> {
+        assert_ne!(rows, 0);
+        assert_ne!(cols, 0);
+        let mut iter = iter.into_iter();
+        let m = Matrix(
+            (0..rows)
+                .map(|_| (0..cols).map(|_| iter.next().unwrap()).collect())
+                .collect(),
+        );
+        assert!(iter.next().is_none());
+        m
+    }
+
+    pub fn rows(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn cols(&self) -> usize {
+        self.0[0].len()
+    }
+
+    pub fn row_iter(&self) -> impl Iterator<Item = &Vec<T>> {
+        self.0.iter()
+    }
+}
+
+impl<T> Index<(usize, usize)> for Matrix<T> {
+    type Output = T;
+
+    fn index(&self, (row, col): (usize, usize)) -> &T {
+        &self.0[row][col]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Matrix<T> {
+    fn index_mut(&mut self, (row, col): (usize, usize)) -> &mut T {
+        &mut self.0[row][col]
+    }
 }
 
 pub mod bulletproof;
