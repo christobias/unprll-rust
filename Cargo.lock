@@ -1846,6 +1846,7 @@ version = "0.1.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "common 1.0.0",
+ "crypto 1.0.0",
  "cryptonote_core 1.0.0",
  "futures 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "libp2p 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
