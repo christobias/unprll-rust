@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! # Ring Confidential Transactions (RingCT)
 //! This implementation is based on the whitepaper
 
@@ -66,6 +68,9 @@ impl Commitment {
 pub struct Matrix<T>(Vec<Vec<T>>);
 
 impl<T> Matrix<T> {
+    /// Create a new Matrix from a function
+    /// 
+    /// The closure is called with the current row and column as parameters
     pub fn from_fn(rows: usize, cols: usize, closure: impl Fn(usize, usize) -> T) -> Matrix<T> {
         assert_ne!(rows, 0);
         assert_ne!(cols, 0);
@@ -76,6 +81,9 @@ impl<T> Matrix<T> {
         )
     }
 
+    /// Create a new Matrix from an iterator
+    /// 
+    /// The given iterator is a one dimensional version of the matrix in row major order
     pub fn from_iter(rows: usize, cols: usize, iter: impl IntoIterator<Item = T>) -> Matrix<T> {
         assert_ne!(rows, 0);
         assert_ne!(cols, 0);
@@ -89,14 +97,17 @@ impl<T> Matrix<T> {
         m
     }
 
+    /// Get the number of rows in this matrix
     pub fn rows(&self) -> usize {
         self.0.len()
     }
 
+    /// Get the number of columns in this matrix
     pub fn cols(&self) -> usize {
         self.0[0].len()
     }
 
+    /// Get an iterator over each row
     pub fn row_iter(&self) -> impl Iterator<Item = &Vec<T>> {
         self.0.iter()
     }

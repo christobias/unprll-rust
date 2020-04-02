@@ -1,3 +1,7 @@
+#![deny(missing_docs)]
+
+//! # Cryptonote P2P Networking module
+
 use std::sync::{Arc, RwLock};
 
 use libp2p::{
@@ -16,6 +20,7 @@ mod cryptonote_protocol;
 pub use config::Config;
 use cryptonote_protocol::CryptonoteNetworkBehavior;
 
+/// Initialize the P2P handler
 pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     config: &Config,
     runtime: &mut Runtime,

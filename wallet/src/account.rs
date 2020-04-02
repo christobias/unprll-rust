@@ -54,16 +54,19 @@ impl<TCoin> Wallet<TCoin>
 where
     TCoin: AddressPrefixes,
 {
+    /// Add an account to the current wallet
     pub fn add_account(&mut self, major_index: u32) {
         self.accounts.insert(
             major_index,
             Account::new(self.get_address_for_index(&SubAddressIndex(major_index, 0))),
         );
     }
+    /// Get the account at the given major index from the current wallet
     pub fn get_account(&self, major_index: u32) -> Option<&Account<TCoin>> {
         self.accounts.get(&major_index)
     }
 
+    /// Add an address to the given account
     pub fn add_address(&mut self, index: SubAddressIndex) -> Result<(), failure::Error> {
         let address = self.get_address_for_index(&index);
 

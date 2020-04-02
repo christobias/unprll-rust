@@ -1,3 +1,9 @@
+#![deny(missing_docs)]
+
+//! # Cryptonote RPC server
+//! 
+//! Used by wallets to access the Cryptonote core
+
 #[macro_use]
 extern crate log;
 
@@ -14,6 +20,7 @@ mod rpc_server;
 
 pub use config::Config;
 
+/// Initialize the RPC server
 pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     config: &Config,
     runtime: &mut Runtime,

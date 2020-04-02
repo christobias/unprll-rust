@@ -2,6 +2,10 @@
 #![allow(non_snake_case)]
 #![allow(clippy::many_single_char_names)]
 
+//! # Bulletproofs
+//! 
+//! Zero knowledge range proofs
+
 use std::borrow::Borrow;
 
 use failure::format_err;
@@ -16,8 +20,13 @@ use crypto::{
 
 use crate::{Commitment, AMOUNT_BASEPOINT, AMOUNT_BASEPOINT_TABLE};
 
+/// A bulletproof
+/// 
+/// Contains commitments to proved values and responses to challenges based on those values
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bulletproof {
+    /// Commitments to proved values
     pub V: Vec<Point>,
     pub A: Point,
     pub S: Point,

@@ -1,3 +1,8 @@
+//! # RingCT
+//! 
+//! Ring Confidential Transactions is a signature scheme used to hide
+//! amounts in a transaction from public view
+
 use std::iter::Sum;
 
 use failure::format_err;
@@ -40,8 +45,13 @@ pub struct ECDHTuple {
 /// Defines the type of RingCT signature
 #[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RingCTType {
+    /// Placeholder for an empty RingCT signature
     Null = 0,
+    /// Bulletproof enabled RingCT
+    /// 
+    /// Allows for smaller signatures
     Bulletproof = 3,
+    /// Smaller Bulletproofs
     Bulletproof2 = 4,
 }
 
@@ -287,6 +297,10 @@ pub fn sign(
     Ok(signature)
 }
 
+/// Verify the given RingCT signatures
+/// 
+/// ## Returns
+/// An empty tuple if the signature is valid, else an Error
 pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), failure::Error> {
     for signature in signatures {
         // Currently we've only got Bulletproof outputs

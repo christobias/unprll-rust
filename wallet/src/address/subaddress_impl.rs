@@ -9,6 +9,7 @@ impl<TCoin> Wallet<TCoin>
 where
     TCoin: AddressPrefixes,
 {
+    /// Get the address at a given index from the current wallet
     pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Address<TCoin> {
         if index == &SubAddressIndex(0, 0) {
             return Address::standard(self.spend_keypair.public_key, self.view_keypair.public_key);
@@ -31,6 +32,7 @@ where
         Address::subaddress(spend_public_key, view_public_key)
     }
 
+    /// Get the secret key used in generating a subaddress in the given index
     pub fn get_subaddress_secret_key(
         &self,
         SubAddressIndex(major, minor): &SubAddressIndex,

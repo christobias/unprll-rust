@@ -11,12 +11,16 @@ impl<TCoin> Wallet<TCoin>
 where
     TCoin: AddressPrefixes,
 {
+    /// Get the last checked block of the current wallet
     pub fn get_last_checked_block(&self) -> (&u64, &Hash256) {
         self.checked_blocks
             .iter()
             .max_by(|(height_1, _), (height_2, _)| height_1.cmp(height_2))
             .unwrap()
     }
+    /// Scan a given block for transactions to the current wallet
+    /// 
+    /// First scans the coinbase transaction, then all other transactions in the block
     pub fn scan_block(&mut self, block: &Block, transactions: &HashMap<Hash256, Transaction>) {
         // Check if we're scanning an older block height, in which case
         // we'll need to rescan from that point (possibly due to a reorg)

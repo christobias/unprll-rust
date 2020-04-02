@@ -1,3 +1,9 @@
+#![deny(missing_docs)]
+
+//! Cryptonote Wallet library
+//! 
+//! Used to handle Cryptonote wallets
+
 use std::collections::HashMap;
 use std::convert::From;
 
@@ -15,6 +21,7 @@ mod test_definitions;
 use account::Account;
 pub use address::{Address, AddressPrefixes, SubAddressIndex};
 
+/// A Cryptonote Wallet
 #[derive(Serialize, Deserialize)]
 pub struct Wallet<TCoin>
 where
@@ -70,15 +77,22 @@ where
         Self::from_secret_keys(spend_secret_key, view_secret_key)
     }
 
+    /// Get the spend keypair of the current wallet
     pub fn spend_keypair(&self) -> &KeyPair {
         &self.spend_keypair
     }
+
+    /// Get the view keypair of the current wallet
     pub fn view_keypair(&self) -> &KeyPair {
         &self.view_keypair
     }
+
+    /// Get the accounts of the current wallet
     pub fn accounts(&self) -> &HashMap<u32, Account<TCoin>> {
         &self.accounts
     }
+
+    /// Get the list of checked blocks of the current wallet
     pub fn checked_blocks(&self) -> &HashMap<u64, Hash256> {
         &self.checked_blocks
     }

@@ -15,6 +15,8 @@ use crypto::{
 
 use crate::Matrix;
 
+/// MLSAG signature
+#[allow(missing_docs)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub s: Matrix<Scalar>,

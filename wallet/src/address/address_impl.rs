@@ -5,6 +5,7 @@ use crypto::{Hash256Data, PublicKey};
 use super::{Address, AddressPrefixes, AddressType};
 
 impl<TPrefix: AddressPrefixes> Address<TPrefix> {
+    /// Generate the standard address from the given public keys
     pub fn standard(spend_public_key: PublicKey, view_public_key: PublicKey) -> Self {
         Address {
             address_type: AddressType::Standard,
@@ -14,6 +15,7 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
         }
     }
 
+    /// Generate a subaddress from the given public keys
     pub fn subaddress(spend_public_key: PublicKey, view_public_key: PublicKey) -> Self {
         Address {
             address_type: AddressType::SubAddress,
@@ -23,6 +25,7 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
         }
     }
 
+    /// Generate an integrated address from the given public keys and payment ID
     pub fn integrated(
         spend_public_key: PublicKey,
         view_public_key: PublicKey,
