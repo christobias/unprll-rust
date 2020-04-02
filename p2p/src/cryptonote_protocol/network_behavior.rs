@@ -1,48 +1,26 @@
+//! # Libp2p specific code
+//!
+//! Handles taking events from Libp2p and passing them to our code (for better code organization)
+
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use std::collections::{
-    HashSet,
-    VecDeque
-};
-use std::sync::{
-    Arc,
-    RwLock
-};
 
-use futures::{
-    Async,
-    Stream
-};
+use futures::{Async, Stream};
+
+use cryptonote_core::{CryptonoteCore, EmissionCurve};
 use libp2p::{
-    core::{
-        ConnectedPoint,
-        PeerId
-    },
-    Multiaddr,
+    core::{ConnectedPoint, PeerId},
     swarm::{
-        NetworkBehaviour,
-        NetworkBehaviourAction,
-        protocols_handler::{
-            OneShotHandler,
-            SubstreamProtocol
-        },
-        PollParameters
+        protocols_handler::{OneShotHandler, SubstreamProtocol},
+        NetworkBehaviour, NetworkBehaviourAction, PollParameters,
     },
-    tokio_io::{
-        AsyncRead,
-        AsyncWrite
-    }
-};
-use log::debug;
-
-use common::GetHash;
-use cryptonote_core::{
-    CryptonoteCore,
-    EmissionCurve
+    tokio_io::{AsyncRead, AsyncWrite},
+    Multiaddr,
 };
 
-use super::protocol::{
-    CryptonoteP2PUpgrade,
-    CryptonoteP2PMessage
+use super::{
+    protocol::{CryptonoteP2PMessage, CryptonoteP2PUpgrade},
+    protocol_handler::CryptonoteP2PHandler,
 };
 
 // IDEA: Further split each component into its own parts for easier use by other coins
@@ -50,40 +28,44 @@ use super::protocol::{
 /// `NetworkBehaviour` to drive the Cryptonote P2P protocol
 pub struct CryptonoteNetworkBehavior<TCoin, TSubstream>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
-    core: Arc<RwLock<CryptonoteCore<TCoin>>>,
-    events: VecDeque<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>>,
+    handler: CryptonoteP2PHandler<TCoin>,
     marker: std::marker::PhantomData<TSubstream>,
-    peers: HashSet<PeerId>
 }
 
 impl<TCoin, TSubstream> CryptonoteNetworkBehavior<TCoin, TSubstream>
 where
-    TCoin: EmissionCurve
+    TCoin: EmissionCurve,
 {
     pub fn new(_peer_id: PeerId, core: Arc<RwLock<CryptonoteCore<TCoin>>>) -> Self {
         Self {
-            core,
-            events: VecDeque::new(),
-            peers: HashSet::new(),
-            marker: std::marker::PhantomData
+            handler: CryptonoteP2PHandler::new(core),
+            marker: std::marker::PhantomData,
         }
     }
 }
 
+/// Interfacing code with libp2p
 impl<TCoin, TSubstream> NetworkBehaviour for CryptonoteNetworkBehavior<TCoin, TSubstream>
 where
     TCoin: cryptonote_core::EmissionCurve,
-    TSubstream: AsyncRead + AsyncWrite
+    TSubstream: AsyncRead + AsyncWrite,
 {
-    type ProtocolsHandler = OneShotHandler<TSubstream, CryptonoteP2PUpgrade, CryptonoteP2PUpgrade, CryptonoteP2PMessage>;
+    type ProtocolsHandler = OneShotHandler<
+        TSubstream,
+        CryptonoteP2PUpgrade,
+        CryptonoteP2PUpgrade,
+        CryptonoteP2PMessage,
+    >;
     type OutEvent = CryptonoteP2PMessage;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         OneShotHandler::new(
-            SubstreamProtocol::from(CryptonoteP2PUpgrade { message: CryptonoteP2PMessage::Empty }),
-            Duration::from_secs(10)
+            SubstreamProtocol::from(CryptonoteP2PUpgrade {
+                message: CryptonoteP2PMessage::Empty,
+            }),
+            Duration::from_secs(600),
         )
     }
 
@@ -91,43 +73,27 @@ where
         Vec::new()
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, endpoint: ConnectedPoint) {
-        debug!("New node connected: {} {:?}", peer_id, endpoint);
-        self.peers.insert(peer_id);
+    fn inject_connected(&mut self, peer_id: PeerId, _endpoint: ConnectedPoint) {
+        self.handler.add_new_peer(peer_id);
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, endpoint: ConnectedPoint) {
-        debug!("Node disconnected: {} {:?}", peer_id, endpoint);
-        self.peers.remove(peer_id);
+    fn inject_disconnected(&mut self, peer_id: &PeerId, _endpoint: ConnectedPoint) {
+        self.handler.remove_peer(peer_id);
     }
 
-    fn inject_node_event(&mut self, _peer_id: PeerId, event: CryptonoteP2PMessage) {
-        match event {
-            CryptonoteP2PMessage::NewBlock(block) => {
-                let mut core = self.core.write().unwrap();
-                let blockchain = core.blockchain_mut();
-                if blockchain.get_block(&block.get_hash()).is_none() {
-                    blockchain.add_new_block(*block).unwrap();
-                }
-            },
-            CryptonoteP2PMessage::Empty => {}
-        }
+    fn inject_node_event(&mut self, peer_id: PeerId, event: CryptonoteP2PMessage) {
+        self.handler.handle_message(peer_id, event);
     }
 
-    fn poll(&mut self, _params: &mut impl PollParameters) -> Async<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>> {
-        if let Ok(Async::Ready(Some(block))) = self.core.write().unwrap().blockchain_mut().poll() {
-            for peer_id in self.peers.iter().cloned() {
-                self.events.push_back(NetworkBehaviourAction::SendEvent {
-                    event: CryptonoteP2PUpgrade {
-                        message: CryptonoteP2PMessage::NewBlock(Box::from(block.clone()))
-                    },
-                    peer_id
-                })
-            }
-        }
-
-        if let Some(event) = self.events.pop_front() {
-            return Async::Ready(event);
+    fn poll(
+        &mut self,
+        _params: &mut impl PollParameters,
+    ) -> Async<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>> {
+        if let Ok(Async::Ready(Some((peer_id, message)))) = self.handler.poll() {
+            return Async::Ready(NetworkBehaviourAction::SendEvent {
+                event: CryptonoteP2PUpgrade { message },
+                peer_id,
+            });
         }
         Async::NotReady
     }

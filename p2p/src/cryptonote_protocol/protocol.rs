@@ -1,22 +1,16 @@
 use libp2p::{
-    core::upgrade::{
-        self,
-        InboundUpgrade,
-        Negotiated,
-        OutboundUpgrade,
-        UpgradeInfo
-    },
-    tokio_io::{
-        AsyncRead,
-        AsyncWrite
-    }
+    core::upgrade::{self, InboundUpgrade, Negotiated, OutboundUpgrade, UpgradeInfo},
+    tokio_io::{AsyncRead, AsyncWrite},
 };
-use serde::{
-    Serialize,
-    Deserialize
-};
+use serde::{Deserialize, Serialize};
 
-use common::Block;
+use common::{Block, Transaction};
+use crypto::Hash256;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeInfo {
+    pub chain_height: u64,
+}
 
 /// P2P Protocol Messages
 #[derive(Clone, Serialize, Deserialize)]
@@ -24,8 +18,35 @@ pub enum CryptonoteP2PMessage {
     /// Placeholder for when there is no message
     Empty,
 
-    /// A new block was mined
-    NewBlock(Box<Block>)
+    // ------------- Data Messages -------------
+    /// Information about this node, including information about its main
+    /// chain
+    Info(NodeInfo),
+
+    /// A set of blocks of transactions, as a response to a node sync or
+    /// when a miner finds a new block
+    Blocks(Vec<Block>),
+
+    /// A set of individual transactions, as a response to a node sync or
+    /// when new transactions are broadcasted
+    Transactions(Vec<Transaction>),
+
+    // ----------- Request Messages ------------
+    /// Request for node info
+    GetInfo,
+
+    /// Request for the given blocks from start to end height
+    ///
+    /// The range of blocks returned is similar to Rust slices (i.e, start inclusive, end exclusive)
+    /// The node can send multiple blocks for the same height in case of a chain split, and
+    /// fewer blocks than the end in case of shorter node chain height
+    GetBlocks(u64, u64),
+
+    /// Request for the given transaction IDs, confirmed and unconfirmed
+    ///
+    /// If the node does not have all transactions requested, it sends those that
+    /// it does have
+    GetTransactions(Vec<Hash256>),
 }
 
 impl From<()> for CryptonoteP2PMessage {
@@ -38,7 +59,7 @@ impl From<()> for CryptonoteP2PMessage {
 #[derive(Clone)]
 pub struct CryptonoteP2PUpgrade {
     /// Message to be sent
-    pub message: CryptonoteP2PMessage
+    pub message: CryptonoteP2PMessage,
 }
 
 impl UpgradeInfo for CryptonoteP2PUpgrade {

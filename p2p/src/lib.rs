@@ -28,7 +28,7 @@ pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     // Set up the swarm
     let mut swarm = {
         let transport = libp2p::build_development_transport(local_key);
-        let network_behavior = CryptonoteNetworkBehavior::new(peer_id.clone(), core.clone());
+        let network_behavior = CryptonoteNetworkBehavior::new(peer_id.clone(), core);
         Swarm::new(transport, network_behavior, peer_id)
     };
 
