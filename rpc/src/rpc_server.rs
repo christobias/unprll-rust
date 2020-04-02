@@ -67,9 +67,7 @@ fn get_blocks<TCoin: EmissionCurve>(
         .to
         .unwrap_or_else(|| blockchain.get_tail().unwrap().0);
 
-    let blocks = blockchain
-        .get_blocks(start_height, end_height)
-        .ok_or(jsonrpc_v2::Error::INVALID_PARAMS)?;
+    let blocks = blockchain.get_blocks(start_height, end_height);
 
     let transactions = blocks
         .iter()

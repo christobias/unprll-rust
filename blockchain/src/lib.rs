@@ -54,12 +54,14 @@ where
 
     // Blocks
     /// Get blocks from `start` to `end` (inclusive)
-    pub fn get_blocks(&self, start: u64, end: u64) -> Option<Vec<Block>> {
+    pub fn get_blocks(&self, start: u64, end: u64) -> Vec<Block> {
         let mut vec = Vec::new();
         for i in start..=end {
-            vec.push(self.blockchain_db.get_block_by_height(i)?);
+            if let Some(block) = self.blockchain_db.get_block_by_height(i) {
+                vec.push(block);
+            }
         }
-        Some(vec)
+        vec
     }
 
     /// Get a reference to alternative blocks received from other peers
