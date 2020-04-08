@@ -1,12 +1,8 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 use failure::{format_err, Error};
-use futures::{future::Future, stream::Stream, try_ready, Async, Poll};
-use log::{debug, error};
-use tokio::timer::Interval;
 
 use async_jsonrpc_client::{serde_json, JSONRPCClient};
 use coin_specific::Unprll;
@@ -18,7 +14,7 @@ use crate::config::Config;
 
 pub struct WalletStore {
     client: JSONRPCClient,
-    refresh_interval: Interval,
+    // refresh_interval: Interval,
     wallet_dir: std::path::PathBuf,
     wallets: HashMap<String, Arc<RwLock<Wallet<Unprll>>>>,
 }
@@ -27,7 +23,7 @@ impl WalletStore {
     pub fn new(config: Config) -> Self {
         let ws = WalletStore {
             client: JSONRPCClient::new(&config.daemon_address).unwrap(),
-            refresh_interval: Interval::new_interval(Duration::from_secs(10)),
+            // refresh_interval: Interval::new_interval(Duration::from_secs(10)),
             wallet_dir: config.wallet_dir,
             wallets: HashMap::new(),
         };
@@ -42,8 +38,7 @@ impl WalletStore {
             return Err(format_err!("Wallet {} exists in memory", wallet_name));
         }
         self.wallets
-            .insert(wallet_name.clone(), Arc::from(RwLock::new(wallet)));
-        self.refresh_wallet(&wallet_name);
+            .insert(wallet_name, Arc::from(RwLock::new(wallet)));
         Ok(())
     }
 
@@ -78,9 +73,9 @@ impl WalletStore {
             .ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
     }
 
-    pub fn refresh_wallet(&self, wallet_name: &str) {
-        if let Some(wallet) = self.wallets.get(wallet_name) {
-            debug!("Refreshing {}", wallet_name);
+    pub async fn refresh_wallets(&self) {
+        for (wallet_name, wallet) in &self.wallets {
+            log::debug!("Refreshing {}", wallet_name);
 
             let last_checked_height = {
                 let wallet = wallet.read().unwrap();
@@ -89,59 +84,62 @@ impl WalletStore {
             };
             let wallet = wallet.clone();
 
-            tokio::spawn(
-                self.client
-                    .send_jsonrpc_request(
-                        "get_blocks",
-                        serde_json::to_value(GetBlocksRequest {
-                            from: last_checked_height,
-                            to: None,
-                        })
-                        .unwrap(),
-                    )
-                    .map(|response| {
-                        let response: GetBlocksResponse = response.unwrap();
-                        // TODO: Move this to a #[serde(with)] method
-                        (
-                            response
-                                .blocks
-                                .into_iter()
-                                .flat_map(hex::decode)
-                                .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
-                                .collect(),
-                            response
-                                .transactions
-                                .into_iter()
-                                .flat_map(hex::decode)
-                                .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
-                                .map(|tx: Transaction| (tx.get_hash(), tx))
-                                .collect(),
-                        )
+            let response = self
+                .client
+                .send_jsonrpc_request(
+                    "get_blocks",
+                    serde_json::to_value(GetBlocksRequest {
+                        from: last_checked_height,
+                        to: None,
                     })
-                    .map(move |(blocks, transactions): (Vec<_>, HashMap<_, _>)| {
+                    .unwrap(),
+                )
+                .await;
+
+            match response {
+                Ok(response) => {
+                    if let Some(response) = response {
+                        let response: GetBlocksResponse = response;
+                        // TODO: Move this to a #[serde(with)] method
+                        let blocks: Vec<common::Block> = response
+                            .blocks
+                            .into_iter()
+                            .flat_map(hex::decode)
+                            .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
+                            .collect();
+
+                        let transactions: HashMap<_, _> = response
+                            .transactions
+                            .into_iter()
+                            .flat_map(hex::decode)
+                            .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
+                            .map(|tx: Transaction| (tx.get_hash(), tx))
+                            .collect();
+
                         blocks.iter().for_each(|block| {
                             wallet.write().unwrap().scan_block(block, &transactions);
                         });
-                    })
-                    .map_err(|error| {
-                        error!("Failed to refresh wallet: {}", error);
-                    }),
-            );
+                    }
+                }
+                Err(error) => {
+                    log::error!("Failed to refresh wallet: {}", error);
+                }
+            }
         }
     }
 }
 
-impl Future for WalletStore {
-    type Item = ();
-    type Error = ();
+// impl Future for WalletStore {
+//     type Item = ();
+//     type Error = ();
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        try_ready!(self.refresh_interval.poll().map_err(|_| {}));
-        self.wallets
-            .keys()
-            .for_each(|wallet_name| self.refresh_wallet(&wallet_name));
+//     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+//         // try_ready!(self.refresh_interval.poll().map_err(|_| {}));
+//         self.wallets
+//             .keys()
+//             .for_each(|wallet_name| self.refresh_wallet(&wallet_name));
 
-        futures::task::current().notify();
-        Ok(Async::NotReady)
-    }
-}
+//         futures::task::current().notify();
+//         Ok(Async::NotReady)
+//     }
+// }

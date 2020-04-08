@@ -1,16 +1,14 @@
 use std::sync::{Arc, RwLock};
 
-use futures::future::Future;
-use log::{error, info};
 use structopt::StructOpt;
-use tokio::runtime::Runtime;
 
 use cryptonote_core::CryptonoteCore;
 
 mod config;
 use config::Config;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Command Line Arguments
     let config = Config::from_args();
 
@@ -19,12 +17,13 @@ fn main() {
         .expect("Failed to initialise logger");
 
     // Main
-    run(config).unwrap_or_else(|err| error!("Unable to run daemon! {}", err));
-    info!("Exiting");
+    if let Err(error) = run(config).await {
+        log::error!("Daemon encountered an error: {}", error);
+    }
 }
 
-fn run(config: Config) -> Result<(), std::io::Error> {
-    info!(
+async fn run(config: Config) -> Result<(), failure::Error> {
+    log::info!(
         "{}",
         format!(
             "{:?} - {:?}",
@@ -32,7 +31,6 @@ fn run(config: Config) -> Result<(), std::io::Error> {
             coin_specific::VERSION
         )
     );
-    let mut runtime = Runtime::new()?;
 
     // Cryptonote Core Hub
     let core = Arc::new(RwLock::new(CryptonoteCore::new(
@@ -40,12 +38,11 @@ fn run(config: Config) -> Result<(), std::io::Error> {
         &config.cryptonote_core_config,
     )));
 
-    p2p::init(&config.p2p_config, &mut runtime, core.clone())?;
-    rpc::init(&config.rpc_config, &mut runtime, core);
+    futures::join!(
+        p2p::init(&config.p2p_config, core.clone())?,
+        rpc::init(&config.rpc_config, core)?,
+    );
 
-    runtime
-        .shutdown_on_idle()
-        .wait()
-        .unwrap_or_else(|_| error!("Runtime shut down abruptly!"));
+    log::info!("Exiting");
     Ok(())
 }

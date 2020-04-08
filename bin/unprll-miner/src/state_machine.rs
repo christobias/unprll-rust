@@ -1,50 +1,36 @@
-use futures::{future::Future, prelude::*, stream::Stream, try_ready};
-use log::{error, info};
-use std::convert::TryFrom;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::timer::Interval;
+use std::{
+    convert::TryFrom,
+    future::Future,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
-use async_jsonrpc_client::Error;
 use coin_specific::{emission::EmissionCurve, Unprll};
 use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
 use crypto::{CNFastHash, Digest, Hash256, KeyPair};
-use rpc::api_definitions::*;
 use wallet::Address;
 
 use crate::config::Config;
 use crate::miner::Miner;
 use crate::network::Network;
 
-enum MinerState {
-    Idle,
-    RequestingStats(Box<dyn Future<Item = GetStatsResponse, Error = Error> + Send>),
-    Mining,
-    SubmittingBlock(Box<dyn Future<Item = (), Error = Error> + Send>),
-}
-
 pub struct MinerStateMachine {
     client: Network,
-    check_interval: Interval,
+    check_interval: Duration,
+    last_checked: Instant,
     last_prev_id: Option<String>,
     miner: Miner,
     miner_address: Address<Unprll>,
-    state: MinerState,
 }
-
-use MinerState::*;
 
 impl MinerStateMachine {
     pub fn new(config: &Config) -> Result<Self, failure::Error> {
         Ok(MinerStateMachine {
             client: Network::new(&config)?,
-            check_interval: Interval::new(
-                Instant::now(),
-                Duration::from_secs(config.check_interval),
-            ),
+            check_interval: Duration::from_secs(config.check_interval),
+            last_checked: Instant::now(),
             last_prev_id: None,
             miner: Miner::new(),
             miner_address: Address::try_from(config.miner_address.as_str())?,
-            state: Idle,
         })
     }
 
@@ -101,71 +87,47 @@ impl MinerStateMachine {
 
         block
     }
-}
 
-impl Future for MinerStateMachine {
-    type Item = ();
-    type Error = ();
+    pub fn into_future(mut self) -> impl Future<Output = Result<(), failure::Error>> {
+        async move {
+            loop {
+                // Check if we need to check the daemon for a new chain tail
+                let stats = self.client.get_stats().await?;
+                self.last_checked = Instant::now();
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        // Check if we need to check the daemon for a new chain tail
-        if let Ok(Async::Ready(_)) = self.check_interval.poll() {
-            info!("Checking for new chain head...");
-            // Request the chain's current status
-            self.state = RequestingStats(Box::new(self.client.get_stats()));
-        }
+                // Check if the tail changed
+                let reset = if let Some(last_prev_id) = &self.last_prev_id {
+                    // Tail has changed if not equal, reset
+                    *last_prev_id != stats.tail.1
+                } else {
+                    // Fresh start, reset anyway
+                    log::info!("Starting miner...");
+                    true
+                };
 
-        loop {
-            match &mut self.state {
-                Idle => {
-                    return Ok(Async::NotReady);
+                if reset {
+                    log::info!("New block was added to the chain. Resetting miner...");
+
+                    // Create a new block template and reset the miner
+                    let (height, prev_id) = stats.tail;
+                    self.miner.set_block(Some(self.construct_block_template(
+                        height,
+                        Hash256::try_from(prev_id.as_str()).unwrap(),
+                    )));
+                    self.miner.set_difficulty(stats.difficulty);
+
+                    // Update our last seen tail
+                    self.last_prev_id = Some(prev_id);
                 }
-                RequestingStats(future) => {
-                    let stats = try_ready!(future.map_err(|e| error!("{}", e)).poll());
 
-                    // Check if the tail changed
-                    let last_prev_id = self.last_prev_id.take();
-                    let mut reset = false;
-                    if let Some(last_prev_id) = last_prev_id {
-                        if last_prev_id != stats.tail.1 {
-                            // Tail has changed, reset
-                            reset = true;
-                        }
-                        self.last_prev_id = Some(last_prev_id);
-                    } else {
-                        // Fresh start, reset anyway
-                        info!("Starting miner...");
-                        self.last_prev_id = last_prev_id;
-                        reset = true;
+                while self.last_checked.elapsed() < self.check_interval {
+                    if self.miner.run_pow_step() {
+                        log::info!("Block found!");
+                        self.client
+                            .submit_block(self.miner.take_block().unwrap())
+                            .await?;
+                        break;
                     }
-
-                    if reset {
-                        info!("New block was added to the chain. Resetting miner...");
-
-                        // Create a new block template and reset the miner
-                        let (height, prev_id) = stats.tail;
-                        self.miner.set_block(Some(self.construct_block_template(
-                            height,
-                            Hash256::try_from(prev_id.as_str()).unwrap(),
-                        )));
-                        self.miner.set_difficulty(stats.difficulty);
-
-                        // Update our last seen tail
-                        self.last_prev_id = Some(prev_id);
-                    }
-
-                    self.state = Mining;
-                }
-                Mining => {
-                    let block = try_ready!(self.miner.poll());
-
-                    info!("Block found!");
-                    self.state = SubmittingBlock(Box::new(self.client.submit_block(block)))
-                }
-                SubmittingBlock(future) => {
-                    try_ready!(future.map_err(|e| error!("{}", e)).poll());
-
-                    self.state = RequestingStats(Box::new(self.client.get_stats()));
                 }
             }
         }

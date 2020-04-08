@@ -1,6 +1,9 @@
+use std::future::Future;
+use std::pin::Pin;
+
 use libp2p::{
-    core::upgrade::{self, InboundUpgrade, Negotiated, OutboundUpgrade, UpgradeInfo},
-    tokio_io::{AsyncRead, AsyncWrite},
+    core::upgrade::{self, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+    futures::io::{AsyncRead, AsyncWrite},
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,29 +74,39 @@ impl UpgradeInfo for CryptonoteP2PUpgrade {
     }
 }
 
-// Callback for read_one_then to keep things readable (recommended by clippy)
-type ReadThenCallback = fn(Vec<u8>, ()) -> Result<CryptonoteP2PMessage, upgrade::ReadOneError>;
+type UpgradeFuture<Output, Error> = Pin<Box<dyn Future<Output = Result<Output, Error>> + Send>>;
 
-impl<TSubstream: AsyncRead + AsyncWrite> InboundUpgrade<TSubstream> for CryptonoteP2PUpgrade {
+impl<TSocket> InboundUpgrade<TSocket> for CryptonoteP2PUpgrade
+where
+    TSocket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     type Output = CryptonoteP2PMessage;
-    type Error = upgrade::ReadOneError;
-    type Future = upgrade::ReadOneThen<Negotiated<TSubstream>, (), ReadThenCallback>;
+    type Error = failure::Error;
+    type Future = UpgradeFuture<Self::Output, Self::Error>;
 
-    fn upgrade_inbound(self, socket: Negotiated<TSubstream>, _: Self::Info) -> Self::Future {
-        // TODO: Decide on the max packet length
-        upgrade::read_one_then(socket, 65536, (), |packet, ()| {
-            let message = bincode::deserialize(&packet).unwrap();
-            Ok(message)
+    fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+        Box::pin(async move {
+            let packet = upgrade::read_one(&mut socket, 1_048_576).await?;
+            bincode::deserialize(&packet)
+                .map_err(|err| failure::format_err!("Error deserializing incoming packet: {}", err))
         })
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> OutboundUpgrade<TSubstream> for CryptonoteP2PUpgrade {
+impl<TSocket> OutboundUpgrade<TSocket> for CryptonoteP2PUpgrade
+where
+    TSocket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     type Output = ();
     type Error = std::io::Error;
-    type Future = upgrade::WriteOne<Negotiated<TSubstream>>;
+    type Future = UpgradeFuture<Self::Output, Self::Error>;
 
-    fn upgrade_outbound(self, socket: Negotiated<TSubstream>, _: Self::Info) -> Self::Future {
-        upgrade::write_one(socket, bincode::serialize(&self.message).unwrap())
+    fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+        Box::pin(async move {
+            let packet =
+                bincode::serialize(&self.message).map_err(|_| std::io::ErrorKind::InvalidInput)?;
+            upgrade::write_one(&mut socket, packet).await?;
+            Ok(())
+        })
     }
 }

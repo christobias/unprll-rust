@@ -2,19 +2,21 @@
 //!
 //! Handles taking events from Libp2p and passing them to our code (for better code organization)
 
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
-
-use futures::{Async, Stream};
+use std::{
+    future::Future,
+    sync::{Arc, RwLock},
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use cryptonote_core::{CryptonoteCore, EmissionCurve};
+use futures::StreamExt;
 use libp2p::{
-    core::{ConnectedPoint, PeerId},
+    core::{connection::ConnectionId, PeerId},
     swarm::{
-        protocols_handler::{OneShotHandler, SubstreamProtocol},
-        NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+        protocols_handler::{OneShotHandler, OneShotHandlerConfig, SubstreamProtocol},
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters,
     },
-    tokio_io::{AsyncRead, AsyncWrite},
     Multiaddr,
 };
 
@@ -26,38 +28,31 @@ use super::{
 // IDEA: Further split each component into its own parts for easier use by other coins
 
 /// `NetworkBehaviour` to drive the Cryptonote P2P protocol
-pub struct CryptonoteNetworkBehavior<TCoin, TSubstream>
+pub struct CryptonoteNetworkBehavior<TCoin>
 where
-    TCoin: EmissionCurve,
+    TCoin: EmissionCurve + Unpin,
 {
     handler: CryptonoteP2PHandler<TCoin>,
-    marker: std::marker::PhantomData<TSubstream>,
 }
 
-impl<TCoin, TSubstream> CryptonoteNetworkBehavior<TCoin, TSubstream>
+impl<TCoin> CryptonoteNetworkBehavior<TCoin>
 where
-    TCoin: EmissionCurve,
+    TCoin: EmissionCurve + Unpin,
 {
     pub fn new(_peer_id: PeerId, core: Arc<RwLock<CryptonoteCore<TCoin>>>) -> Self {
         Self {
             handler: CryptonoteP2PHandler::new(core),
-            marker: std::marker::PhantomData,
         }
     }
 }
 
 /// Interfacing code with libp2p
-impl<TCoin, TSubstream> NetworkBehaviour for CryptonoteNetworkBehavior<TCoin, TSubstream>
+impl<TCoin> NetworkBehaviour for CryptonoteNetworkBehavior<TCoin>
 where
-    TCoin: cryptonote_core::EmissionCurve,
-    TSubstream: AsyncRead + AsyncWrite,
+    TCoin: cryptonote_core::EmissionCurve + Unpin + Send + Sync + 'static,
 {
-    type ProtocolsHandler = OneShotHandler<
-        TSubstream,
-        CryptonoteP2PUpgrade,
-        CryptonoteP2PUpgrade,
-        CryptonoteP2PMessage,
-    >;
+    type ProtocolsHandler =
+        OneShotHandler<CryptonoteP2PUpgrade, CryptonoteP2PUpgrade, CryptonoteP2PMessage>;
     type OutEvent = CryptonoteP2PMessage;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
@@ -65,7 +60,10 @@ where
             SubstreamProtocol::from(CryptonoteP2PUpgrade {
                 message: CryptonoteP2PMessage::Empty,
             }),
-            Duration::from_secs(600),
+            OneShotHandlerConfig {
+                inactive_timeout: Duration::from_secs(600),
+                substream_timeout: Duration::from_secs(608),
+            },
         )
     }
 
@@ -73,28 +71,38 @@ where
         Vec::new()
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, _endpoint: ConnectedPoint) {
+    fn inject_connected(&mut self, peer_id: &PeerId) {
         self.handler.add_new_peer(peer_id);
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, _endpoint: ConnectedPoint) {
+    fn inject_disconnected(&mut self, peer_id: &PeerId) {
         self.handler.remove_peer(peer_id);
     }
 
-    fn inject_node_event(&mut self, peer_id: PeerId, event: CryptonoteP2PMessage) {
+    fn inject_event(
+        &mut self,
+        peer_id: PeerId,
+        _connection_id: ConnectionId,
+        event: CryptonoteP2PMessage,
+    ) {
         self.handler.handle_message(peer_id, event);
     }
 
     fn poll(
         &mut self,
+        context: &mut Context,
         _params: &mut impl PollParameters,
-    ) -> Async<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>> {
-        if let Ok(Async::Ready(Some((peer_id, message)))) = self.handler.poll() {
-            return Async::Ready(NetworkBehaviourAction::SendEvent {
+    ) -> Poll<NetworkBehaviourAction<CryptonoteP2PUpgrade, CryptonoteP2PMessage>> {
+        let event = (&mut self.handler).next();
+        futures::pin_mut!(event);
+
+        if let Poll::Ready(Some((peer_id, message))) = event.poll(context) {
+            return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
                 event: CryptonoteP2PUpgrade { message },
+                handler: NotifyHandler::Any,
                 peer_id,
             });
         }
-        Async::NotReady
+        Poll::Pending
     }
 }

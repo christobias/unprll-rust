@@ -1,5 +1,3 @@
-use futures::{task, Async, Future, Poll};
-
 use common::Block;
 use crypto::{Digest, Hash256, RNJC};
 
@@ -27,12 +25,14 @@ impl Miner {
             self.block = Some(block);
         }
     }
+    pub fn take_block(&mut self) -> Option<Block> {
+        self.block.take()
+    }
     pub fn set_difficulty(&mut self, difficulty: u128) {
         self.difficulty = difficulty;
     }
-    fn run_pow_step(&mut self) -> bool {
-        let block = self.block.take();
-        if let Some(mut block) = block {
+    pub fn run_pow_step(&mut self) -> bool {
+        if let Some(block) = &mut self.block {
             let mut hash = *block
                 .header
                 .hash_checkpoints
@@ -42,7 +42,6 @@ impl Miner {
 
             if common::difficulty::check_hash_for_difficulty(&hash, self.difficulty) {
                 block.header.hash_checkpoints.push(Hash256::from(hash));
-                self.block = Some(block);
                 return true;
             }
 
@@ -51,22 +50,7 @@ impl Miner {
             if block.header.iterations % 30 == 0 {
                 block.header.hash_checkpoints.push(Hash256::from(hash));
             }
-            self.block = Some(block);
         }
         false
-    }
-}
-
-impl Future for Miner {
-    type Item = Block;
-    type Error = ();
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if self.run_pow_step() {
-            Ok(Async::Ready(self.block.take().unwrap()))
-        } else {
-            task::current().notify();
-            Ok(Async::NotReady)
-        }
     }
 }

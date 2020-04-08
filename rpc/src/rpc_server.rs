@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jsonrpc_v2::{Error, Params, Server, State};
+use jsonrpc_v2::{Data, Error, MapRouter, Params, Server};
 
 use crate::api_definitions::*;
 use common::GetHash;
@@ -10,24 +10,26 @@ type CoreRef<TCoin> = Arc<RwLock<CryptonoteCore<TCoin>>>;
 
 pub fn build_server<TCoin: 'static + EmissionCurve + Send + Sync>(
     core: CoreRef<TCoin>,
-) -> Result<Server<CoreRef<TCoin>>, Error> {
-    let s = Server::with_state(core)
-        .with_method("get_stats", get_stats)
-        .with_method("submit_block", submit_block)
-        .with_method("get_blocks", get_blocks)
+) -> Result<Arc<Server<MapRouter>>, Error> {
+    let s = Server::new()
+        .with_data(Data::new(core))
+        .with_method("get_stats", get_stats::<TCoin>)
+        .with_method("submit_block", submit_block::<TCoin>)
+        .with_method("get_blocks", get_blocks::<TCoin>)
         .finish();
 
     Ok(s)
 }
 
-fn get_stats<TCoin: EmissionCurve>(
-    state: State<CoreRef<TCoin>>,
-) -> Result<GetStatsResponse, Error> {
-    let state = state.read().unwrap();
-    let blockchain = state.blockchain();
+async fn get_stats<TCoin>(data: Data<CoreRef<TCoin>>) -> Result<GetStatsResponse, Error>
+where
+    TCoin: EmissionCurve,
+{
+    let data = data.read().unwrap();
+    let blockchain = data.blockchain();
 
     Ok(GetStatsResponse {
-        difficulty: 1,
+        difficulty: 10,
         tail: blockchain
             .get_tail()
             .map(|x| (x.0, x.1.get_hash().to_string()))
@@ -37,31 +39,37 @@ fn get_stats<TCoin: EmissionCurve>(
     })
 }
 
-fn submit_block<TCoin: EmissionCurve>(
+async fn submit_block<TCoin>(
     Params(params): Params<Vec<String>>,
-    state: State<CoreRef<TCoin>>,
-) -> Result<(), Error> {
+    data: Data<CoreRef<TCoin>>,
+) -> Result<(), Error>
+where
+    TCoin: EmissionCurve,
+{
     let block = bincode::deserialize(&hex::decode(&params[0])?)?;
 
-    let mut state = state.write().unwrap();
-    let blockchain = state.blockchain_mut();
+    let mut data = data.write().unwrap();
+    let blockchain = data.blockchain_mut();
 
     blockchain.add_new_block(block)?;
 
     Ok(())
 }
 
-fn get_blocks<TCoin: EmissionCurve>(
+async fn get_blocks<TCoin>(
     Params(params): Params<GetBlocksRequest>,
-    state: State<CoreRef<TCoin>>,
-) -> Result<GetBlocksResponse, Error> {
+    data: Data<CoreRef<TCoin>>,
+) -> Result<GetBlocksResponse, Error>
+where
+    TCoin: EmissionCurve,
+{
     let start_height = params.from;
     // The end height is optional and will default to a specified value. If the request is too
     // large, the range is reduced
     // TODO: Implement range reduction
 
-    let state = state.read().unwrap();
-    let blockchain = state.blockchain();
+    let data = data.read().unwrap();
+    let blockchain = data.blockchain();
 
     let end_height = params
         .to

@@ -1,7 +1,6 @@
-use futures::Future;
 use serde_json::Value;
 
-use async_jsonrpc_client::{Error, JSONRPCClient, Result};
+use async_jsonrpc_client::{JSONRPCClient, Result};
 use common::Block;
 use rpc::api_definitions::*;
 
@@ -17,12 +16,13 @@ impl Network {
             client: JSONRPCClient::new(&config.daemon_address)?,
         })
     }
-    pub fn get_stats(&self) -> impl Future<Item = GetStatsResponse, Error = Error> {
+    pub async fn get_stats(&self) -> Result<GetStatsResponse> {
         self.client
             .send_jsonrpc_request("get_stats", Value::Null)
-            .map(|x| x.unwrap())
+            .await
+            .map(|stats| stats.unwrap())
     }
-    pub fn submit_block(&self, block: Block) -> impl Future<Item = (), Error = Error> {
+    pub async fn submit_block(&self, block: Block) -> Result<()> {
         self.client
             .send_jsonrpc_request::<()>(
                 "submit_block",
@@ -30,6 +30,7 @@ impl Network {
                     bincode::serialize(&block).unwrap(),
                 ))]),
             )
+            .await
             .map(|_| ())
     }
 }

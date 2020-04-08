@@ -1,7 +1,12 @@
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::{HashMap, VecDeque},
+    future::Future,
+    pin::Pin,
+    sync::{Arc, RwLock},
+    task::{Context, Poll},
+};
 
-use futures::{Async, Poll, Stream};
+use futures::{Stream, StreamExt};
 use libp2p::PeerId;
 
 use common::GetHash;
@@ -15,7 +20,8 @@ where
 {
     core: Arc<RwLock<CryptonoteCore<TCoin>>>,
     peers: HashMap<PeerId, Option<NodeInfo>>,
-    pending_messages: VecDeque<(PeerId, CryptonoteP2PMessage)>,
+    // It's an ArcRwLock to bypass mut issues
+    pending_messages: Arc<RwLock<VecDeque<(PeerId, CryptonoteP2PMessage)>>>,
 }
 
 impl<TCoin> CryptonoteP2PHandler<TCoin>
@@ -26,15 +32,18 @@ where
         Self {
             core,
             peers: HashMap::new(),
-            pending_messages: VecDeque::new(),
+            pending_messages: Arc::from(RwLock::from(VecDeque::new())),
         }
     }
 
     fn send_event(&mut self, peer_id: PeerId, message: CryptonoteP2PMessage) {
-        self.pending_messages.push_back((peer_id, message));
+        self.pending_messages
+            .write()
+            .unwrap()
+            .push_back((peer_id, message));
     }
 
-    pub fn add_new_peer(&mut self, peer_id: PeerId) {
+    pub fn add_new_peer(&mut self, peer_id: &PeerId) {
         self.send_event(peer_id.clone(), CryptonoteP2PMessage::GetInfo);
         self.peers.insert(peer_id.clone(), None);
         log::debug!("New peer connected: {}", peer_id);
@@ -52,17 +61,50 @@ where
                 log::debug!("Info from {}", peer_id);
 
                 if let Some(current_node_info) = self.peers.get_mut(&peer_id) {
-                    *current_node_info = Some(node_info);
+                    *current_node_info = Some(node_info.clone());
+
+                    // Start syncing from this node if we're lagging behind
+                    let core = self.core.read().unwrap();
+                    let (current_height, _) = core.blockchain().get_tail().unwrap();
+
+                    drop(core);
+
+                    if current_height < node_info.chain_height {
+                        log::info!(
+                            "Syncing from {}. Current Height: {}, Target height: {}",
+                            peer_id,
+                            current_height + 1,
+                            node_info.chain_height
+                        );
+                        self.send_event(
+                            peer_id,
+                            CryptonoteP2PMessage::GetBlocks(current_height, current_height + 20),
+                        )
+                    }
                 }
             }
             CryptonoteP2PMessage::Blocks(blocks) => {
                 let mut core = self.core.write().unwrap();
                 let blockchain = core.blockchain_mut();
 
+                let had_blocks = !blocks.is_empty();
+
                 for block in blocks {
                     if blockchain.get_block(&block.get_hash()).is_none() {
                         blockchain.add_new_block(block).unwrap();
                     }
+                }
+
+                // If we're syncing, send the request for the next block range
+                if had_blocks {
+                    let (current_height, _) = blockchain.get_tail().unwrap();
+
+                    drop(core);
+
+                    self.send_event(
+                        peer_id,
+                        CryptonoteP2PMessage::GetBlocks(current_height + 1, current_height + 20),
+                    );
                 }
             }
             CryptonoteP2PMessage::Transactions(_transactions) => unimplemented!(),
@@ -110,19 +152,23 @@ where
 
 impl<TCoin> Stream for CryptonoteP2PHandler<TCoin>
 where
-    TCoin: EmissionCurve,
+    TCoin: EmissionCurve + Unpin,
 {
     type Item = (PeerId, CryptonoteP2PMessage);
-    type Error = ();
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context) -> Poll<Option<Self::Item>> {
         {
             let mut core = self.core.write().unwrap();
             let blockchain = core.blockchain_mut();
 
-            if let Ok(Async::Ready(Some(block))) = blockchain.poll() {
+            let block = blockchain.next();
+            futures::pin_mut!(block);
+
+            // Check for new blocks from the blockchain
+            // TODO FIXME: Blocking on a future feels incorrect within an async context
+            if let Poll::Ready(Some(block)) = block.poll(context) {
                 for (peer_id, _) in self.peers.iter() {
-                    self.pending_messages.push_back((
+                    self.pending_messages.write().unwrap().push_back((
                         peer_id.clone(),
                         CryptonoteP2PMessage::Blocks(vec![block.clone()]),
                     ));
@@ -130,9 +176,9 @@ where
             }
         }
 
-        if let Some(message) = self.pending_messages.pop_front() {
-            return Ok(Async::Ready(Some(message)));
+        if let Some(message) = self.pending_messages.write().unwrap().pop_front() {
+            return Poll::Ready(Some(message));
         }
-        Ok(Async::NotReady)
+        Poll::Pending
     }
 }

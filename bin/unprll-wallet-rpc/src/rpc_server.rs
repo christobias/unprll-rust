@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jsonrpc_v2::{Error, Params, Server, State};
+use jsonrpc_v2::{Data, Error, MapRouter, Params, Server};
 
 use crypto::KeyPair;
 use wallet::{SubAddressIndex, Wallet};
@@ -9,11 +9,13 @@ use crate::{api_definitions::*, wallet_store::WalletStore};
 
 type WalletStoreRef = Arc<RwLock<WalletStore>>;
 
-pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Server<WalletStoreRef>, Error> {
-    let s = Server::with_state(wallet_store_ref)
+pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Arc<Server<MapRouter>>, Error> {
+    let s = Server::new()
+        .with_data(Data::new(wallet_store_ref))
         // Wallet create/load ops
         .with_method("create_wallet", create_wallet)
         .with_method("load_wallet", load_wallet)
+        .with_method("refresh_wallets", refresh_wallets)
         .with_method("save_wallets", save_wallets)
         // (Sub)Address management
         .with_method("get_addresses", get_addresses)
@@ -23,42 +25,47 @@ pub fn build_server(wallet_store_ref: WalletStoreRef) -> Result<Server<WalletSto
     Ok(s)
 }
 
-fn create_wallet(
+async fn create_wallet(
     Params(params): Params<CreateWalletRequest>,
-    state: State<WalletStoreRef>,
+    data: Data<WalletStoreRef>,
 ) -> Result<(), Error> {
     let spend_keypair = KeyPair::generate();
 
     let w = Wallet::from(spend_keypair.secret_key);
-    state
-        .write()
+    data.write()
         .unwrap()
         .add_wallet(params.wallet_name, w)
         .map_err(Error::from)
 }
 
-fn load_wallet(
+async fn load_wallet(
     Params(params): Params<LoadWalletRequest>,
-    state: State<WalletStoreRef>,
+    data: Data<WalletStoreRef>,
 ) -> Result<(), Error> {
-    let mut state = state.write().unwrap();
+    let mut data = data.write().unwrap();
 
-    state
-        .load_wallet(params.wallet_name)
-        .map_err(jsonrpc_v2::Error::from)
+    data.load_wallet(params.wallet_name).map_err(Error::from)
 }
 
-fn save_wallets(state: State<WalletStoreRef>) -> Result<(), Error> {
-    let state = state.write().unwrap();
+async fn refresh_wallets(data: Data<WalletStoreRef>) -> Result<(), Error> {
+    let data = data.write().unwrap();
 
-    state.save_wallets().map_err(jsonrpc_v2::Error::from)
+    // TODO:
+    let _tmp = data.refresh_wallets();
+    Ok(())
 }
 
-fn get_addresses(
+async fn save_wallets(data: Data<WalletStoreRef>) -> Result<(), Error> {
+    let data = data.write().unwrap();
+
+    data.save_wallets().map_err(Error::from)
+}
+
+async fn get_addresses(
     Params(params): Params<GetAddressesRequest>,
-    state: State<WalletStoreRef>,
+    data: Data<WalletStoreRef>,
 ) -> Result<GetAddressesResponse, Error> {
-    let wallet_store = state.read().unwrap();
+    let wallet_store = data.read().unwrap();
 
     let major_index = params.account_index;
     let minor_indices = params.address_indices.unwrap_or_else(|| vec![{ 0 }]);
@@ -77,11 +84,11 @@ fn get_addresses(
     Ok(response)
 }
 
-fn get_balances(
+async fn get_balances(
     Params(params): Params<GetBalancesRequest>,
-    state: State<WalletStoreRef>,
+    data: Data<WalletStoreRef>,
 ) -> Result<GetBalancesResponse, Error> {
-    let wallet_store = state.read().unwrap();
+    let wallet_store = data.read().unwrap();
 
     let mut response = GetBalancesResponse::default();
 
@@ -94,7 +101,7 @@ fn get_balances(
             wallet
                 .get_account(major_index)
                 .ok_or_else(|| {
-                    jsonrpc_v2::Error::from(failure::format_err!(
+                    Error::from(failure::format_err!(
                         "Account at index {} does not exist",
                         major_index
                     ))

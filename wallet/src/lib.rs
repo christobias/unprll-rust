@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 
 //! Cryptonote Wallet library
-//! 
+//!
 //! Used to handle Cryptonote wallets
 
 use std::collections::HashMap;

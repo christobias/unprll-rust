@@ -1,5 +1,3 @@
-use futures::future::Future;
-use log::{error, info};
 use structopt::StructOpt;
 
 mod config;
@@ -12,7 +10,9 @@ use state_machine::MinerStateMachine;
 
 fn main() {
     let mut runtime = tokio::runtime::Builder::new()
-        .stack_size(4 * 1024 * 1024)
+        .threaded_scheduler()
+        .thread_stack_size(4 * 1024 * 1024)
+        .enable_all()
         .build()
         .expect("Failed to create Tokio runtime!");
 
@@ -20,7 +20,7 @@ fn main() {
 
     bin_common::logger::init(&config.bin_common_config, "unprll-miner").unwrap();
 
-    info!(
+    log::info!(
         "{}",
         format!(
             "{:?} - {:?}",
@@ -31,10 +31,11 @@ fn main() {
 
     match MinerStateMachine::new(&config) {
         Ok(miner_state_machine) => {
-            runtime.spawn(miner_state_machine);
-
-            runtime.shutdown_on_idle().wait().unwrap()
+            let fut = miner_state_machine.into_future();
+            if let Err(err) = runtime.block_on(fut) {
+                log::error!("Miner enountered an error: {}", err)
+            }
         }
-        Err(err) => error!("Failed to start miner: {}", err),
+        Err(err) => log::error!("Failed to start miner: {}", err),
     }
 }

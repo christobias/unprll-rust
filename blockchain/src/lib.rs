@@ -3,11 +3,13 @@
 //! # Blockchain management
 //! This crate handles the blockchain
 
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    pin::Pin,
+    task::{Context, Poll, Waker},
+};
 
-use failure::format_err;
-use futures::{task::Task, Async, Poll, Stream};
-use log::info;
+use futures::Stream;
 
 use blockchain_db::{BlockchainDB, Result};
 use common::{Block, GetHash, PreliminaryChecks, Transaction};
@@ -28,7 +30,7 @@ where
     alternative_blocks: Vec<Block>,
     blockchain_db: BlockchainDB,
     coin_definition: TCoin,
-    current_task: Option<Task>,
+    pending_wake: Option<Waker>,
     events: VecDeque<Block>,
 }
 
@@ -42,7 +44,7 @@ where
             alternative_blocks: Vec::new(),
             blockchain_db: BlockchainDB::new(&config.blockchain_db_config),
             coin_definition,
-            current_task: None,
+            pending_wake: None,
             events: VecDeque::new(),
         };
         if blockchain.blockchain_db.get_block_by_height(0).is_none() {
@@ -89,15 +91,15 @@ where
         // TODO: Add transactions once the mempool is done
         self.blockchain_db.add_block(block.clone(), Vec::new())?;
 
-        // Notify any pending tasks
-        if let Some(task) = &self.current_task {
-            task.notify();
+        // Notify any pending futures
+        if let Some(waker) = self.pending_wake.take() {
+            waker.wake();
             self.events.push_back(block.clone());
         }
 
         // Print a log message for confirmation
         let (height, _) = self.get_tail()?;
-        info!(
+        log::info!(
             "Added new block:\tBlock ID: {}\tBlock Height: {}",
             block.get_hash(),
             height
@@ -132,14 +134,14 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
         // The coinbase transaction must have only one input and output
         if block.miner_tx.prefix.inputs.len() != 1 {
-            return Err(format_err!(
+            return Err(failure::format_err!(
                 "Block {}'s coinbase transaction does not have exactly one input!",
                 block.get_hash()
             ));
         }
 
         if block.miner_tx.prefix.outputs.len() != 1 {
-            return Err(format_err!(
+            return Err(failure::format_err!(
                 "Block {}'s coinbase transaction does not have exactly one output!",
                 block.get_hash()
             ));
@@ -151,7 +153,7 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
                 .coin_definition
                 .get_block_reward(block.header.major_version)?
         {
-            return Err(format_err!(
+            return Err(failure::format_err!(
                 "Block {}'s coinbase transaction does not follow the coin's emission curve!",
                 block.get_hash()
             ));
@@ -163,19 +165,19 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
 impl<TCoin> Stream for Blockchain<TCoin>
 where
-    TCoin: EmissionCurve,
+    TCoin: EmissionCurve + Unpin,
 {
     type Item = Block;
-    type Error = ();
 
     // TODO: This has to become a read-only reference to blockchain to make
     //       sure we don't block any other readers. We are only ever going
     //       to use read-only methods on the actual blockchain
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        self.current_task = Some(futures::task::current());
-        if let Some(event) = self.events.pop_front() {
-            return Ok(Async::Ready(Some(event)));
+    fn poll_next(mut self: Pin<&mut Self>, context: &mut Context) -> Poll<Option<Self::Item>> {
+        if let Some(event) = self.as_mut().events.pop_front() {
+            Poll::Ready(Some(event))
+        } else {
+            self.as_mut().pending_wake = Some(context.waker().clone());
+            Poll::Pending
         }
-        Ok(Async::NotReady)
     }
 }

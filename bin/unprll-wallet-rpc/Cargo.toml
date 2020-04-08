@@ -13,13 +13,13 @@ coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 crypto = { path = "../../crypto" }
 failure = "0.1"
-futures = "0.1"
+futures = "0.3"
 hex = "0.3"
-hyper = "0.12"
-jsonrpc-v2 = { version = "0.3", default-features = false, features = ["easy_errors", "hyper"]}
+hyper = "0.13"
+jsonrpc-v2 = { version = "0.5", default-features = false, features = ["easy-errors", "hyper-integration"]}
 log = "0.4"
 rpc = { path = "../../rpc" }
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.2"
-tokio = "0.1"
+tokio = { version = "0.2", features = ["full"] }
 wallet = { path = "../../wallet" }

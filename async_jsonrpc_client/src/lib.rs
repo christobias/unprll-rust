@@ -1,5 +1,4 @@
-use futures::Future;
-use reqwest::r#async::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -45,16 +44,17 @@ pub type Error = failure::Error;
 impl JSONRPCClient {
     pub fn new(address: &str) -> Result<Self> {
         Ok(Self {
-            client: Client::builder().build()?,
+            client: Client::new(),
             address: format!("http://{}", address),
         })
     }
-    pub fn send_jsonrpc_request<T: for<'de> Deserialize<'de>>(
+    pub async fn send_jsonrpc_request<T: for<'de> Deserialize<'de>>(
         &self,
         method: &str,
         params: Value,
-    ) -> impl Future<Item = Option<T>, Error = failure::Error> {
-        self.client
+    ) -> Result<Option<T>> {
+        let res: JSONRPCResponse<T> = self
+            .client
             .post(&self.address)
             .json(&JSONRPCRequest {
                 jsonrpc: "2.0".to_string(),
@@ -63,18 +63,18 @@ impl JSONRPCClient {
                 id: 1,
             })
             .send()
-            .and_then(|mut res| res.json())
-            .map_err(failure::Error::from)
-            .and_then(|res: JSONRPCResponse<T>| {
-                if let Some(err) = res.error {
-                    return Err(err.into());
-                }
+            .await?
+            .json()
+            .await?;
 
-                if let Some(res) = res.result {
-                    Ok(Some(res))
-                } else {
-                    Ok(None)
-                }
-            })
+        if let Some(err) = res.error {
+            return Err(err.into());
+        }
+
+        if let Some(res) = res.result {
+            Ok(Some(res))
+        } else {
+            Ok(None)
+        }
     }
 }
