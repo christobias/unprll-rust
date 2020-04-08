@@ -3,7 +3,7 @@
 #![allow(clippy::many_single_char_names)]
 
 //! # Bulletproofs
-//! 
+//!
 //! Zero knowledge range proofs
 
 use std::borrow::Borrow;
@@ -21,7 +21,7 @@ use crypto::{
 use crate::{Commitment, AMOUNT_BASEPOINT, AMOUNT_BASEPOINT_TABLE};
 
 /// A bulletproof
-/// 
+///
 /// Contains commitments to proved values and responses to challenges based on those values
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Serialize, Deserialize)]

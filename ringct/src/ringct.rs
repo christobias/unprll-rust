@@ -1,5 +1,5 @@
 //! # RingCT
-//! 
+//!
 //! Ring Confidential Transactions is a signature scheme used to hide
 //! amounts in a transaction from public view
 
@@ -48,7 +48,7 @@ pub enum RingCTType {
     /// Placeholder for an empty RingCT signature
     Null = 0,
     /// Bulletproof enabled RingCT
-    /// 
+    ///
     /// Allows for smaller signatures
     Bulletproof = 3,
     /// Smaller Bulletproofs
@@ -298,7 +298,7 @@ pub fn sign(
 }
 
 /// Verify the given RingCT signatures
-/// 
+///
 /// ## Returns
 /// An empty tuple if the signature is valid, else an Error
 pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), failure::Error> {

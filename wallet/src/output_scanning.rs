@@ -19,7 +19,7 @@ where
             .unwrap()
     }
     /// Scan a given block for transactions to the current wallet
-    /// 
+    ///
     /// First scans the coinbase transaction, then all other transactions in the block
     pub fn scan_block(&mut self, block: &Block, transactions: &HashMap<Hash256, Transaction>) {
         // Check if we're scanning an older block height, in which case

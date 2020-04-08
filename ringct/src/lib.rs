@@ -69,7 +69,7 @@ pub struct Matrix<T>(Vec<Vec<T>>);
 
 impl<T> Matrix<T> {
     /// Create a new Matrix from a function
-    /// 
+    ///
     /// The closure is called with the current row and column as parameters
     pub fn from_fn(rows: usize, cols: usize, closure: impl Fn(usize, usize) -> T) -> Matrix<T> {
         assert_ne!(rows, 0);
@@ -82,7 +82,7 @@ impl<T> Matrix<T> {
     }
 
     /// Create a new Matrix from an iterator
-    /// 
+    ///
     /// The given iterator is a one dimensional version of the matrix in row major order
     pub fn from_iter(rows: usize, cols: usize, iter: impl IntoIterator<Item = T>) -> Matrix<T> {
         assert_ne!(rows, 0);
