@@ -14,7 +14,7 @@ failure = "0.1"
 futures = "0.3"
 hex = "0.3"
 hyper = "0.13"
-jsonrpc-v2 = { version = "0.5", default-features = false, features = ["easy-errors", "hyper-integration"]}
+jsonrpsee = "0.1"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.2"

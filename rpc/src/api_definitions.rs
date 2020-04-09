@@ -1,8 +1,26 @@
+// Needed because jsonrpsee generates unused variables
+#![allow(unused_variables)]
+// Needed because jsonrpsee doesn't allow documenting members just yet
+#![allow(missing_docs)]
+
 //! API definitions for the RPC server
 
 use serde::{Deserialize, Serialize};
 
-/// Request the core's current status
+jsonrpsee::rpc_api! {
+    pub DaemonRPC {
+        /// Request the core's current status
+        fn get_stats() -> GetStatsResponse;
+
+        /// Submit a mined block to the chain
+        fn submit_block(block: String) -> String;
+
+        /// Request a range of confirmed blocks from the blockchain
+        fn get_blocks(from: u64, to: Option<u64>) -> GetBlocksResponse;
+    }
+}
+
+/// Core's current status
 #[derive(Serialize, Deserialize)]
 pub struct GetStatsResponse {
     /// Current tail of the chain in the form of (height, block_id)
@@ -12,20 +30,11 @@ pub struct GetStatsResponse {
     pub target_height: u64,
 
     /// Current difficulty of the network
-    pub difficulty: u128,
+    // TODO FIXME: Change back to u128 once jsonrpsee works with it
+    pub difficulty: u64,
 
     /// Number of unconfirmed transactions in the mempool
     pub tx_pool_count: u64,
-}
-
-// get_blocks
-/// Get the given block range from the main chain
-#[derive(Serialize, Deserialize)]
-pub struct GetBlocksRequest {
-    /// Start height (inclusive)
-    pub from: u64,
-    /// End height (exclusive)
-    pub to: Option<u64>,
 }
 
 // TODO: Make these strongly typed while still serializing to hex strings

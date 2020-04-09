@@ -4,18 +4,23 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+use jsonrpsee::{
+    transport::http::HttpTransportClient,
+    raw::RawClient,
+};
+
 use coin_specific::{emission::EmissionCurve, Unprll};
 use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
 use crypto::{CNFastHash, Digest, Hash256, KeyPair};
+use rpc::api_definitions::DaemonRPC;
 use wallet::Address;
 
 use crate::config::Config;
 use crate::miner::Miner;
-use crate::network::Network;
 
 pub struct MinerStateMachine {
-    client: Network,
     check_interval: Duration,
+    daemon_address: String,
     last_checked: Instant,
     last_prev_id: Option<String>,
     miner: Miner,
@@ -23,15 +28,23 @@ pub struct MinerStateMachine {
 }
 
 impl MinerStateMachine {
-    pub fn new(config: &Config) -> Result<Self, failure::Error> {
+    pub fn new(config: Config) -> Result<Self, failure::Error> {
         Ok(MinerStateMachine {
-            client: Network::new(&config)?,
             check_interval: Duration::from_secs(config.check_interval),
+            daemon_address: config.daemon_address,
             last_checked: Instant::now(),
             last_prev_id: None,
             miner: Miner::new(),
             miner_address: Address::try_from(config.miner_address.as_str())?,
         })
+    }
+
+    // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
+    //             constant load. Remove this once that's changed
+    fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
+        RawClient::new(
+            HttpTransportClient::new(&format!("http://{}", self.daemon_address))
+        )
     }
 
     fn construct_block_template(&self, current_height: u64, prev_id: Hash256) -> Block {
@@ -92,7 +105,7 @@ impl MinerStateMachine {
         async move {
             loop {
                 // Check if we need to check the daemon for a new chain tail
-                let stats = self.client.get_stats().await?;
+                let stats = DaemonRPC::get_stats(&mut self.get_rpc_client()).await?;
                 self.last_checked = Instant::now();
 
                 // Check if the tail changed
@@ -114,7 +127,7 @@ impl MinerStateMachine {
                         height,
                         Hash256::try_from(prev_id.as_str()).unwrap(),
                     )));
-                    self.miner.set_difficulty(stats.difficulty);
+                    self.miner.set_difficulty(stats.difficulty.into());
 
                     // Update our last seen tail
                     self.last_prev_id = Some(prev_id);
@@ -123,9 +136,11 @@ impl MinerStateMachine {
                 while self.last_checked.elapsed() < self.check_interval {
                     if self.miner.run_pow_step() {
                         log::info!("Block found!");
-                        self.client
-                            .submit_block(self.miner.take_block().unwrap())
-                            .await?;
+                        DaemonRPC::submit_block(
+                            &mut self.get_rpc_client(),
+                            hex::encode(
+                                bincode::serialize(&self.miner.take_block().unwrap()).unwrap(),
+                            )).await?;
                         break;
                     }
                 }

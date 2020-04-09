@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "async_jsonrpc_client",
   "bin/common",
   "bin/unprll-miner",
   "bin/unprll-wallet-rpc",

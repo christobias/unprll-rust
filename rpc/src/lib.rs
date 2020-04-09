@@ -9,6 +9,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use jsonrpsee::{
+    raw::RawServer,
+    transport::http::HttpTransportServer,
+};
 use cryptonote_core::{CryptonoteCore, EmissionCurve};
 
 pub mod api_definitions;
@@ -16,6 +20,7 @@ mod config;
 mod rpc_server;
 
 pub use config::Config;
+use rpc_server::DaemonRPCServer;
 
 /// Initialize the RPC server
 pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
@@ -25,12 +30,16 @@ pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     let addr = format!("127.0.0.1:{}", config.rpc_bind_port)
         .parse()?;
 
-    let server = hyper::Server::bind(&addr).serve(
-        rpc_server::build_server(core)
-            .map_err(|_| failure::format_err!("Failed to start RPC server!"))?
-            .into_web_service(),
-    );
+    Ok(async move {
+        let transport_server = HttpTransportServer::bind(&addr)
+            .await
+            .unwrap();
+        let server = RawServer::new(transport_server);
 
-    log::info!("RPC server listening on {}", addr);
-    Ok(server)
+        let daemon_rpc_server = DaemonRPCServer::new(server, core);
+
+        log::info!("RPC server listening on {}", addr);
+
+        daemon_rpc_server.run().await;
+    })
 }

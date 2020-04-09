@@ -3,17 +3,20 @@ use std::fs::File;
 use std::sync::{Arc, RwLock};
 
 use failure::{format_err, Error};
+use jsonrpsee::{
+    transport::http::HttpTransportClient,
+    raw::RawClient,
+};
 
-use async_jsonrpc_client::{serde_json, JSONRPCClient};
 use coin_specific::Unprll;
 use common::{GetHash, Transaction};
-use rpc::api_definitions::{GetBlocksRequest, GetBlocksResponse};
+use rpc::api_definitions::DaemonRPC;
 use wallet::Wallet;
 
 use crate::config::Config;
 
 pub struct WalletStore {
-    client: JSONRPCClient,
+    daemon_address: String,
     // refresh_interval: Interval,
     wallet_dir: std::path::PathBuf,
     wallets: HashMap<String, Arc<RwLock<Wallet<Unprll>>>>,
@@ -22,7 +25,7 @@ pub struct WalletStore {
 impl WalletStore {
     pub fn new(config: Config) -> Self {
         let ws = WalletStore {
-            client: JSONRPCClient::new(&config.daemon_address).unwrap(),
+            daemon_address: config.daemon_address,
             // refresh_interval: Interval::new_interval(Duration::from_secs(10)),
             wallet_dir: config.wallet_dir,
             wallets: HashMap::new(),
@@ -31,6 +34,14 @@ impl WalletStore {
         std::fs::create_dir_all(&ws.wallet_dir).unwrap();
 
         ws
+    }
+
+    // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
+    //             constant load. Remove this once that's changed
+    fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
+        RawClient::new(
+            HttpTransportClient::new(&format!("http://{}", self.daemon_address))
+        )
     }
 
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet<Unprll>) -> Result<(), Error> {
@@ -52,6 +63,13 @@ impl WalletStore {
         self.add_wallet(wallet_name, wallet)
     }
 
+    pub fn get_wallet(&self, wallet_name: &str) -> Result<Arc<RwLock<Wallet<Unprll>>>, Error> {
+        self.wallets
+            .get(wallet_name)
+            .cloned()
+            .ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
+    }
+
     pub fn save_wallets(&self) -> Result<(), Error> {
         for (wallet_name, wallet) in &self.wallets {
             let mut wallet_path = self.wallet_dir.clone();
@@ -66,14 +84,7 @@ impl WalletStore {
         Ok(())
     }
 
-    pub fn get_wallet(&self, wallet_name: &str) -> Result<Arc<RwLock<Wallet<Unprll>>>, Error> {
-        self.wallets
-            .get(wallet_name)
-            .cloned()
-            .ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
-    }
-
-    pub async fn refresh_wallets(&self) {
+    pub async fn refresh_wallets(&mut self) -> Result<(), failure::Error> {
         for (wallet_name, wallet) in &self.wallets {
             log::debug!("Refreshing {}", wallet_name);
 
@@ -84,62 +95,29 @@ impl WalletStore {
             };
             let wallet = wallet.clone();
 
-            let response = self
-                .client
-                .send_jsonrpc_request(
-                    "get_blocks",
-                    serde_json::to_value(GetBlocksRequest {
-                        from: last_checked_height,
-                        to: None,
-                    })
-                    .unwrap(),
-                )
-                .await;
+            let response = DaemonRPC::get_blocks(&mut self.get_rpc_client(), last_checked_height, None).await?;
 
-            match response {
-                Ok(response) => {
-                    if let Some(response) = response {
-                        let response: GetBlocksResponse = response;
-                        // TODO: Move this to a #[serde(with)] method
-                        let blocks: Vec<common::Block> = response
-                            .blocks
-                            .into_iter()
-                            .flat_map(hex::decode)
-                            .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
-                            .collect();
+            // TODO: Move this to a #[serde(with)] method
+            let blocks: Vec<common::Block> = response
+                .blocks
+                .into_iter()
+                .flat_map(hex::decode)
+                .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
+                .collect();
 
-                        let transactions: HashMap<_, _> = response
-                            .transactions
-                            .into_iter()
-                            .flat_map(hex::decode)
-                            .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
-                            .map(|tx: Transaction| (tx.get_hash(), tx))
-                            .collect();
+            let transactions: HashMap<_, _> = response
+                .transactions
+                .into_iter()
+                .flat_map(hex::decode)
+                .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
+                .map(|tx: Transaction| (tx.get_hash(), tx))
+                .collect();
 
-                        blocks.iter().for_each(|block| {
-                            wallet.write().unwrap().scan_block(block, &transactions);
-                        });
-                    }
-                }
-                Err(error) => {
-                    log::error!("Failed to refresh wallet: {}", error);
-                }
-            }
+            blocks.iter().for_each(|block| {
+                wallet.write().unwrap().scan_block(block, &transactions);
+            });
         }
+
+        Ok(())
     }
 }
-
-// impl Future for WalletStore {
-//     type Item = ();
-//     type Error = ();
-
-//     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-//         // try_ready!(self.refresh_interval.poll().map_err(|_| {}));
-//         self.wallets
-//             .keys()
-//             .for_each(|wallet_name| self.refresh_wallet(&wallet_name));
-
-//         futures::task::current().notify();
-//         Ok(Async::NotReady)
-//     }
-// }

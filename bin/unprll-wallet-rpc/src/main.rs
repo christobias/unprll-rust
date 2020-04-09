@@ -1,14 +1,18 @@
 use std::sync::{Arc, RwLock};
 
-use log::{error, info};
+use jsonrpsee::{
+    raw::RawServer,
+    transport::http::HttpTransportServer,
+};
 use structopt::StructOpt;
 
-mod api_definitions;
+pub mod api_definitions;
 mod config;
 mod rpc_server;
 mod wallet_store;
 
 pub use config::Config;
+use rpc_server::WalletRPCServer;
 use wallet_store::WalletStore;
 
 #[tokio::main]
@@ -20,17 +24,13 @@ async fn main() {
         .unwrap();
     bin_common::logger::init(&config.bin_common_config, "unprll-wallet-rpc").unwrap();
 
-    let wallet_store = Arc::from(RwLock::from(WalletStore::new(config)));
-
-    info!("RPC server listening on {}", addr);
-
-    hyper::Server::bind(&addr)
-        .serve(
-            rpc_server::build_server(wallet_store.clone())
-                .map_err(|_| error!("Failed to start RPC server!"))
-                .unwrap()
-                .into_web_service(),
-        )
+    let transport_server = HttpTransportServer::bind(&addr)
         .await
         .unwrap();
+    let server = RawServer::new(transport_server);
+
+    let wallet_rpc_server = WalletRPCServer::new(server, Arc::from(RwLock::from(WalletStore::new(config))));
+
+    log::info!("RPC server listening on {}", addr);
+    wallet_rpc_server.run().await;
 }

@@ -2,7 +2,6 @@ use structopt::StructOpt;
 
 mod config;
 mod miner;
-mod network;
 mod state_machine;
 
 use config::Config;
@@ -29,7 +28,7 @@ fn main() {
         )
     );
 
-    match MinerStateMachine::new(&config) {
+    match MinerStateMachine::new(config) {
         Ok(miner_state_machine) => {
             let fut = miner_state_machine.into_future();
             if let Err(err) = runtime.block_on(fut) {

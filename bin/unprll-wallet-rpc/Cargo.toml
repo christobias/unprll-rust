@@ -5,7 +5,6 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
-async_jsonrpc_client = { path = "../../async_jsonrpc_client" }
 bincode_epee = { path = "../../bincode_epee" }
 bincode = "1.1"
 bin_common = { path = "../common" }
@@ -16,7 +15,7 @@ failure = "0.1"
 futures = "0.3"
 hex = "0.3"
 hyper = "0.13"
-jsonrpc-v2 = { version = "0.5", default-features = false, features = ["easy-errors", "hyper-integration"]}
+jsonrpsee = { version = "0.1" }
 log = "0.4"
 rpc = { path = "../../rpc" }
 serde = { version = "1.0", features = ["derive"] }
