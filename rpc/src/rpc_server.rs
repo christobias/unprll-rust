@@ -1,10 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jsonrpsee::{
-    common::Error,
-    raw::RawServer,
-    transport::TransportServer,
-};
+use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crate::api_definitions::*;
 use common::GetHash;
@@ -63,9 +59,9 @@ where
 
                         let mut core = self.core.write().unwrap();
                         let blockchain = core.blockchain_mut();
-    
+
                         blockchain.add_new_block(block)?;
-    
+
                         Ok::<_, failure::Error>(())
                     };
                     match response.await {
@@ -74,7 +70,11 @@ where
                     };
                 }
 
-                DaemonRPC::GetBlocks { respond, from: start_height, to: end_height } => {
+                DaemonRPC::GetBlocks {
+                    respond,
+                    from: start_height,
+                    to: end_height,
+                } => {
                     let response = async {
                         // The end height is optional and will default to a specified value. If the request is too
                         // large, the range is reduced
@@ -83,8 +83,8 @@ where
                         let core = self.core.read().unwrap();
                         let blockchain = core.blockchain();
 
-                        let end_height = end_height
-                            .unwrap_or_else(|| blockchain.get_tail().unwrap().0);
+                        let end_height =
+                            end_height.unwrap_or_else(|| blockchain.get_tail().unwrap().0);
 
                         let blocks = blockchain.get_blocks(start_height, end_height);
 

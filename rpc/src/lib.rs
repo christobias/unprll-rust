@@ -9,11 +9,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use jsonrpsee::{
-    raw::RawServer,
-    transport::http::HttpTransportServer,
-};
 use cryptonote_core::{CryptonoteCore, EmissionCurve};
+use jsonrpsee::{raw::RawServer, transport::http::HttpTransportServer};
 
 pub mod api_definitions;
 mod config;
@@ -27,13 +24,10 @@ pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     config: &Config,
     core: Arc<RwLock<CryptonoteCore<TCoin>>>,
 ) -> Result<impl Future, failure::Error> {
-    let addr = format!("127.0.0.1:{}", config.rpc_bind_port)
-        .parse()?;
+    let addr = format!("127.0.0.1:{}", config.rpc_bind_port).parse()?;
 
     Ok(async move {
-        let transport_server = HttpTransportServer::bind(&addr)
-            .await
-            .unwrap();
+        let transport_server = HttpTransportServer::bind(&addr).await.unwrap();
         let server = RawServer::new(transport_server);
 
         let daemon_rpc_server = DaemonRPCServer::new(server, core);

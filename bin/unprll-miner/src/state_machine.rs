@@ -4,10 +4,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use jsonrpsee::{
-    transport::http::HttpTransportClient,
-    raw::RawClient,
-};
+use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
 use coin_specific::{emission::EmissionCurve, Unprll};
 use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
@@ -42,9 +39,10 @@ impl MinerStateMachine {
     // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
     //             constant load. Remove this once that's changed
     fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
-        RawClient::new(
-            HttpTransportClient::new(&format!("http://{}", self.daemon_address))
-        )
+        RawClient::new(HttpTransportClient::new(&format!(
+            "http://{}",
+            self.daemon_address
+        )))
     }
 
     fn construct_block_template(&self, current_height: u64, prev_id: Hash256) -> Block {
@@ -140,7 +138,9 @@ impl MinerStateMachine {
                             &mut self.get_rpc_client(),
                             hex::encode(
                                 bincode::serialize(&self.miner.take_block().unwrap()).unwrap(),
-                            )).await?;
+                            ),
+                        )
+                        .await?;
                         break;
                     }
                 }

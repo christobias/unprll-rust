@@ -1,18 +1,11 @@
 use std::sync::{Arc, RwLock};
 
-use jsonrpsee::{
-    common::Error,
-    raw::RawServer,
-    transport::TransportServer,
-};
+use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crypto::KeyPair;
 use wallet::{SubAddressIndex, Wallet};
 
-use crate::{
-    api_definitions::*,
-    wallet_store::WalletStore
-};
+use crate::{api_definitions::*, wallet_store::WalletStore};
 
 pub struct WalletRPCServer<R, I>
 where
@@ -37,12 +30,21 @@ where
     pub async fn run(self) {
         while let Ok(request) = WalletRPC::next_request(&mut self.server.write().unwrap()).await {
             match request {
-                WalletRPC::CreateWallet { respond, wallet_name, .. } => {
+                WalletRPC::CreateWallet {
+                    respond,
+                    wallet_name,
+                    ..
+                } => {
                     let spend_keypair = KeyPair::generate();
 
                     let w = Wallet::from(spend_keypair.secret_key);
 
-                    match self.wallet_store.write().unwrap().add_wallet(wallet_name.clone(), w) {
+                    match self
+                        .wallet_store
+                        .write()
+                        .unwrap()
+                        .add_wallet(wallet_name.clone(), w)
+                    {
                         Ok(()) => respond.ok("").await,
                         Err(error) => {
                             respond.err(Error::invalid_params(error.to_string())).await;
@@ -50,8 +52,17 @@ where
                     };
                 }
 
-                WalletRPC::LoadWallet { respond, wallet_name, .. } => {
-                    match self.wallet_store.write().unwrap().load_wallet(wallet_name.clone()) {
+                WalletRPC::LoadWallet {
+                    respond,
+                    wallet_name,
+                    ..
+                } => {
+                    match self
+                        .wallet_store
+                        .write()
+                        .unwrap()
+                        .load_wallet(wallet_name.clone())
+                    {
                         Ok(()) => respond.ok("").await,
                         Err(error) => {
                             respond.err(Error::invalid_params(error.to_string())).await;
@@ -60,9 +71,8 @@ where
                 }
 
                 WalletRPC::RefreshWallets { respond } => {
-                    let response = async {
-                        self.wallet_store.write().unwrap().refresh_wallets().await
-                    };
+                    let response =
+                        async { self.wallet_store.write().unwrap().refresh_wallets().await };
 
                     match response.await {
                         Ok(()) => respond.ok("").await,
@@ -70,11 +80,20 @@ where
                     };
                 }
 
-                WalletRPC::SaveWallets { } => {
-                    self.wallet_store.write().unwrap().save_wallets().unwrap_or_else(|_| {});
+                WalletRPC::SaveWallets {} => {
+                    self.wallet_store
+                        .write()
+                        .unwrap()
+                        .save_wallets()
+                        .unwrap_or_else(|_| {});
                 }
 
-                WalletRPC::GetAddresses { respond, wallet_name, account_index, address_indices } => {
+                WalletRPC::GetAddresses {
+                    respond,
+                    wallet_name,
+                    account_index,
+                    address_indices,
+                } => {
                     let major_index = account_index;
                     let minor_indices = address_indices.unwrap_or_else(|| vec![0]);
 
@@ -82,12 +101,18 @@ where
                     let response = async {
                         let mut response = GetAddressesResponse::default();
 
-                        let wallet = self.wallet_store.write().unwrap().get_wallet(&wallet_name)?;
+                        let wallet = self
+                            .wallet_store
+                            .write()
+                            .unwrap()
+                            .get_wallet(&wallet_name)
+                            .ok_or_else(|| failure::format_err!("Wallet not found"))?;
                         let wallet = wallet.read().unwrap();
-                
+
                         for index in minor_indices {
-                            let address = wallet.get_address_for_index(&SubAddressIndex(major_index, index));
-                
+                            let address =
+                                wallet.get_address_for_index(&SubAddressIndex(major_index, index));
+
                             response.addresses.insert(index, address.into());
                         }
                         Ok::<_, failure::Error>(response)
@@ -99,11 +124,20 @@ where
                     };
                 }
 
-                WalletRPC::GetBalances { respond, wallet_name, account_indices } => {
+                WalletRPC::GetBalances {
+                    respond,
+                    wallet_name,
+                    account_indices,
+                } => {
                     let response = async {
                         let mut response = GetBalancesResponse::default();
 
-                        let wallet = self.wallet_store.write().unwrap().get_wallet(&wallet_name)?;
+                        let wallet = self
+                            .wallet_store
+                            .write()
+                            .unwrap()
+                            .get_wallet(&wallet_name)
+                            .ok_or_else(|| failure::format_err!("Wallet not found"))?;
                         let wallet = wallet.read().unwrap();
                         for major_index in account_indices {
                             response.balances.insert(

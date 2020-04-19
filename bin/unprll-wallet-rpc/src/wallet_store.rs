@@ -2,11 +2,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::sync::{Arc, RwLock};
 
-use failure::{format_err, Error};
-use jsonrpsee::{
-    transport::http::HttpTransportClient,
-    raw::RawClient,
-};
+use failure::Error;
+use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
 use coin_specific::Unprll;
 use common::{GetHash, Transaction};
@@ -39,14 +36,18 @@ impl WalletStore {
     // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
     //             constant load. Remove this once that's changed
     fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
-        RawClient::new(
-            HttpTransportClient::new(&format!("http://{}", self.daemon_address))
-        )
+        RawClient::new(HttpTransportClient::new(&format!(
+            "http://{}",
+            self.daemon_address
+        )))
     }
 
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet<Unprll>) -> Result<(), Error> {
         if self.wallets.contains_key(&wallet_name) {
-            return Err(format_err!("Wallet {} exists in memory", wallet_name));
+            return Err(failure::format_err!(
+                "Wallet {} exists in memory",
+                wallet_name
+            ));
         }
         self.wallets
             .insert(wallet_name, Arc::from(RwLock::new(wallet)));
@@ -95,7 +96,9 @@ impl WalletStore {
             };
             let wallet = wallet.clone();
 
-            let response = DaemonRPC::get_blocks(&mut self.get_rpc_client(), last_checked_height, None).await?;
+            let response =
+                DaemonRPC::get_blocks(&mut self.get_rpc_client(), last_checked_height, None)
+                    .await?;
 
             // TODO: Move this to a #[serde(with)] method
             let blocks: Vec<common::Block> = response

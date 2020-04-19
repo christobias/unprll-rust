@@ -1,9 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jsonrpsee::{
-    raw::RawServer,
-    transport::http::HttpTransportServer,
-};
+use jsonrpsee::{raw::RawServer, transport::http::HttpTransportServer};
 use structopt::StructOpt;
 
 pub mod api_definitions;
@@ -24,12 +21,11 @@ async fn main() {
         .unwrap();
     bin_common::logger::init(&config.bin_common_config, "unprll-wallet-rpc").unwrap();
 
-    let transport_server = HttpTransportServer::bind(&addr)
-        .await
-        .unwrap();
+    let transport_server = HttpTransportServer::bind(&addr).await.unwrap();
     let server = RawServer::new(transport_server);
 
-    let wallet_rpc_server = WalletRPCServer::new(server, Arc::from(RwLock::from(WalletStore::new(config))));
+    let wallet_rpc_server =
+        WalletRPCServer::new(server, Arc::from(RwLock::from(WalletStore::new(config))));
 
     log::info!("RPC server listening on {}", addr);
     wallet_rpc_server.run().await;
