@@ -42,7 +42,8 @@ where
                             difficulty: 1,
                             tail: blockchain
                                 .get_tail()
-                                .map(|x| (x.0, x.1.get_hash().to_string()))?,
+                                .map(|x| (x.0, x.1.get_hash().to_string()))
+                                .ok_or_else(|| failure::format_err!("No blocks in chain"))?,
                             target_height: 9999,
                             tx_pool_count: 0,
                         })

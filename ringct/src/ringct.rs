@@ -5,7 +5,6 @@
 
 use std::iter::Sum;
 
-use failure::format_err;
 use serde::{Deserialize, Serialize};
 
 use crypto::{
@@ -14,8 +13,8 @@ use crypto::{
 };
 
 use crate::{
-    bulletproof::{self, Bulletproof},
-    mlsag::{self, Signature as MLSAGSignature},
+    bulletproof::{self, Bulletproof, Error as BulletproofError},
+    mlsag::{self, Error as MLSAGError, Signature as MLSAGSignature},
     Commitment, Matrix, AMOUNT_BASEPOINT_TABLE,
 };
 
@@ -30,6 +29,46 @@ mod ecdh_utils {
         hasher.input(key.as_bytes());
 
         ecc::hash_to_scalar(hasher.result())
+    }
+}
+
+/// Error type for RingCT operations
+#[derive(Fail, Debug)]
+pub enum Error {
+    /// Returned when signature parameters are inconsistent
+    #[fail(display = "Invalid input data")]
+    InvalidParameters,
+
+    /// Returned when the signature has an invalid type
+    #[fail(display = "Signature has invalid type")]
+    InvalidSignatureType,
+
+    /// Returned when the signature is inconsistent
+    #[fail(display = "Signature is inconsistent")]
+    InconsistentSignature,
+
+    /// Returned when the amounts to be signed do not sum to 0
+    #[fail(display = "Input and output amounts do not sum to 0")]
+    NonZeroSum,
+
+    /// Returned when there is an error with the Bulletproof range proof
+    #[fail(display = "{}", _0)]
+    Bulletproof(BulletproofError),
+
+    /// Returned when there is an error with the MLSAG ring signature
+    #[fail(display = "{}", _0)]
+    MLSAG(MLSAGError),
+}
+
+impl From<BulletproofError> for Error {
+    fn from(error: BulletproofError) -> Self {
+        Self::Bulletproof(error)
+    }
+}
+
+impl From<MLSAGError> for Error {
+    fn from(error: MLSAGError) -> Self {
+        Self::MLSAG(error)
     }
 }
 
@@ -149,19 +188,22 @@ pub fn sign(
     outputs: &[(PublicKey, u64, SecretKey)],
     tx_fee: u64,
     mix_ring: Matrix<(PublicKey, PublicKey)>,
-) -> Result<RingCTSignature, failure::Error> {
+) -> Result<RingCTSignature, Error> {
     // Sanitize all parameters
 
     // Inputs
     if inputs.is_empty() {
-        return Err(format_err!("No inputs provided"));
+        return Err(Error::InvalidParameters);
+    }
+
+    // Outputs
+    if outputs.is_empty() {
+        return Err(Error::InvalidParameters);
     }
 
     // Number of secret keys must match mixin ring size
     if inputs.len() != mix_ring.rows() {
-        return Err(format_err!(
-            "Number of secret keys does not match mixin ring"
-        ));
+        return Err(Error::InvalidParameters);
     }
 
     // Input amounts should equal output amounts + fee
@@ -169,7 +211,7 @@ pub fn sign(
     let out_total = outputs.iter().fold(0u64, |acc, (_, a, _)| acc + a);
 
     if in_total != out_total + tx_fee {
-        return Err(format_err!("Outputs and fee do not match inputs"));
+        return Err(Error::NonZeroSum);
     }
 
     // Create the template signature
@@ -301,22 +343,18 @@ pub fn sign(
 ///
 /// ## Returns
 /// An empty tuple if the signature is valid, else an Error
-pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), failure::Error> {
+pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), Error> {
     for signature in signatures {
         // Currently we've only got Bulletproof outputs
         if let RingCTType::Null = signature.base.signature_type {
-            return Err(format_err!("Invalid signature type"));
+            return Err(Error::InvalidSignatureType);
         }
 
         if signature.base.output_commitments.len() != signature.bulletproofs[0].V.len() {
-            return Err(format_err!(
-                "Inconsistent lengths of output commitments and bulletproof commitments"
-            ));
+            return Err(Error::InconsistentSignature);
         }
         if signature.input_commitments.len() != signature.mlsag.len() {
-            return Err(format_err!(
-                "Inconsistent lengths of input commitments and MLSAGs"
-            ));
+            return Err(Error::InconsistentSignature);
         }
 
         // IDEA: Aggregate all the commitments across signatures
@@ -345,7 +383,7 @@ pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), failure::Er
 
         // Check if they're equal
         if sum_ins != sum_outs {
-            return Err(format_err!("Sum of inputs does not equal sum of outputs"));
+            return Err(Error::NonZeroSum);
         }
     }
 

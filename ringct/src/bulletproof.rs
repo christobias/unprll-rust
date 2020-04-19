@@ -8,7 +8,6 @@
 
 use std::borrow::Borrow;
 
-use failure::format_err;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +18,38 @@ use crypto::{
 };
 
 use crate::{Commitment, AMOUNT_BASEPOINT, AMOUNT_BASEPOINT_TABLE};
+
+/// Errors returned by Bulletproof operations
+#[derive(Fail, Debug)]
+pub enum Error {
+    /// Returned when the number of values to be proved in a proof is more than M_MAX
+    #[fail(display = "Too many values to be proven")]
+    TooManyValues,
+
+    /// Returned when the challenge scalars are not reduced
+    #[fail(display = "Input scalars not reduced")]
+    ScalarsNotReduced,
+
+    /// Returned when the proof is empty
+    #[fail(display = "Proof is empty")]
+    EmptyProof,
+
+    /// Returned when the proof does not contain any commitments
+    #[fail(display = "Proof has no commitments")]
+    NoCommitments,
+
+    /// Returned when the proof is inconsistent
+    #[fail(display = "Proof is inconsistent")]
+    InconsistentProof,
+
+    /// Returned when the proof is too large
+    #[fail(display = "Proof is too large")]
+    TooLargeProof,
+
+    /// Returned when the proof fails a check
+    #[fail(display = "Proof failed a check")]
+    InvalidProof,
+}
 
 /// A bulletproof
 ///
@@ -194,10 +225,10 @@ lazy_static! {
 /// # Returns
 /// 1. A bulletproof that proves the given values to be within the 64-bit range
 /// 2. A set of mask values used in the commitments
-pub fn prove_multiple(values: &[u64]) -> Result<(Bulletproof, Vec<Scalar>), failure::Error> {
+pub fn prove_multiple(values: &[u64]) -> Result<(Bulletproof, Vec<Scalar>), Error> {
     // Make sure we're not proving too many values
     if values.len() > M_MAX {
-        return Err(format_err!("Too many values to be proved"));
+        return Err(Error::TooManyValues);
     }
 
     // Number of values to be proved
@@ -508,7 +539,7 @@ pub fn prove_multiple(values: &[u64]) -> Result<(Bulletproof, Vec<Scalar>), fail
 }
 
 /// Checks a set of bulletproofs for validity
-pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failure::Error> {
+pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), Error> {
     let mut max_length = 0;
     for proof in proofs {
         let proof = proof.borrow();
@@ -519,23 +550,23 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
             || (proof.b.reduce() != proof.b)
             || (proof.t.reduce() != proof.t)
         {
-            return Err(format_err!("Input scalars not in range"));
+            return Err(Error::ScalarsNotReduced);
         }
 
         if proof.L.is_empty() {
-            return Err(format_err!("Proof is empty"));
+            return Err(Error::EmptyProof);
         }
         if proof.V.is_empty() {
-            return Err(format_err!("Proof does not have at least one commitment V"));
+            return Err(Error::NoCommitments);
         }
         if proof.L.len() != proof.R.len() {
-            return Err(format_err!("Proof does not have L.len() == R.len()"));
+            return Err(Error::InconsistentProof);
         }
         max_length = std::cmp::max(max_length, proof.L.len());
     }
 
     if max_length >= 32 {
-        return Err(format_err!("Atleast one proof is too large"));
+        return Err(Error::TooLargeProof);
     }
 
     let maxMN = 1u64 << max_length;
@@ -564,7 +595,7 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
             M = 1 << logM;
         }
         if proof.L.len() != 6 + logM {
-            return Err(format_err!("Proof does not have the expected size"));
+            return Err(Error::InconsistentProof);
         }
 
         let MN = N_BITS * M;
@@ -585,13 +616,13 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
         transcript.extend_with_points(&[proof.A, proof.S]);
         let y = transcript.get_current_state();
         if y == Scalar::zero() {
-            return Err(format_err!("y == 0"));
+            return Err(Error::InconsistentProof);
         }
 
         // Challenge z
         let z = hash_to_scalar(CNFastHash::digest(y.as_bytes()));
         if z == Scalar::zero() {
-            return Err(format_err!("z == 0"));
+            return Err(Error::InconsistentProof);
         }
         transcript.reset_state(z);
 
@@ -600,13 +631,13 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
 
         let x = transcript.get_current_state();
         if x == Scalar::zero() {
-            return Err(format_err!("x == 0"));
+            return Err(Error::InconsistentProof);
         }
 
         transcript.extend_with_scalars(&[x, proof.tau_x, proof.mu, proof.t]);
         let x_ip = transcript.get_current_state();
         if x_ip == Scalar::zero() {
-            return Err(format_err!("x_ip == 0"));
+            return Err(Error::InconsistentProof);
         }
 
         // Multiply some points to account for cofactor-8
@@ -659,7 +690,7 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
 
         for w_i in &w {
             if *w_i == Scalar::zero() {
-                return Err(format_err!("w[i] == 0"));
+                return Err(Error::InconsistentProof);
             }
         }
 
@@ -718,7 +749,7 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
     let check1 = (&y0 * &BASEPOINT_TABLE) + (&y1 * &*AMOUNT_BASEPOINT_TABLE) - Y2 - Y3 - Y4;
 
     if !check1.is_identity() {
-        return Err(format_err!("Check 1 failed"));
+        return Err(Error::InvalidProof);
     }
 
     let p = Point::multiscalar_mul(
@@ -735,7 +766,7 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<(), failur
         + p;
 
     if !check2.is_identity() {
-        return Err(format_err!("Check 2 failed"));
+        return Err(Error::InvalidProof);
     }
 
     Ok(())

@@ -84,7 +84,7 @@ impl MinerStateMachine {
                 + self.miner_address.spend_public_key.decompress().unwrap();
 
             block.miner_tx.prefix.outputs.push(TXOut {
-                amount: Unprll.get_block_reward(block.header.major_version).unwrap(),
+                amount: Unprll.get_block_reward(block.header.major_version),
                 target: TXOutTarget::ToKey {
                     key: tx_dest_key.compress(),
                 },

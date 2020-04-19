@@ -1,8 +1,27 @@
 use std::convert::{Into, TryFrom};
 
+use base58_monero::base58::Error as Base58Error;
 use crypto::{Hash256Data, PublicKey};
 
 use super::{Address, AddressPrefixes, AddressType};
+
+/// Error type for Address operations
+#[derive(Fail, Debug)]
+pub enum Error {
+    /// Returned when the address cannot be decoded correctly
+    #[fail(display = "Invalid address encoding")]
+    InvalidEncoding(#[fail(cause)] Base58Error),
+
+    /// Returned when the address prefix is invalid
+    #[fail(display = "Invalid address prefix")]
+    InvalidPrefix,
+}
+
+impl From<Base58Error> for Error {
+    fn from(error: Base58Error) -> Self {
+        Self::InvalidEncoding(error)
+    }
+}
 
 impl<TPrefix: AddressPrefixes> Address<TPrefix> {
     /// Generate the standard address from the given public keys
@@ -79,7 +98,7 @@ impl<TPrefix: AddressPrefixes> Into<String> for Address<TPrefix> {
 
 /// Get an Address from its string representation
 impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
-    type Error = failure::Error;
+    type Error = Error;
 
     fn try_from(data: &str) -> Result<Self, Self::Error> {
         let data = base58_monero::decode_check(data)?;
@@ -112,7 +131,7 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
                 crypto::Hash256::null_hash(),
             ))
         } else {
-            Err(failure::format_err!("Invalid address prefix"))
+            Err(Error::InvalidPrefix)
         }
     }
 }

@@ -1,9 +1,16 @@
 use std::collections::HashMap;
 
-use failure::format_err;
 use serde::{Deserialize, Serialize};
 
 use crate::{Address, AddressPrefixes, SubAddressIndex, Wallet};
+
+/// Error type for Address operations
+#[derive(Fail, Debug)]
+pub enum Error {
+    /// Returned when the account does not exist at the given index
+    #[fail(display = "Account does not exist")]
+    DoesNotExist,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Account<TCoin>
@@ -34,19 +41,19 @@ where
     pub fn balance(&self) -> u64 {
         self.balance
     }
-    pub fn increment_balance(&mut self, inc: u64) -> Result<(), failure::Error> {
+    pub fn increment_balance(&mut self, inc: u64) {
+        // TODO: Panicking is probably the more sane alternative
         self.balance = self
             .balance
             .checked_add(inc)
-            .ok_or_else(|| failure::format_err!("Balance overflow imminent"))?;
-        Ok(())
+            .expect("Account balance overflow");
     }
-    pub fn decrement_balance(&mut self, inc: u64) -> Result<(), failure::Error> {
+    pub fn decrement_balance(&mut self, inc: u64) {
+        // TODO: Panicking is probably the more sane alternative
         self.balance = self
             .balance
             .checked_sub(inc)
-            .ok_or_else(|| failure::format_err!("Balance overflow imminent"))?;
-        Ok(())
+            .expect("Account balance underflow");
     }
 }
 
@@ -67,13 +74,10 @@ where
     }
 
     /// Add an address to the given account
-    pub fn add_address(&mut self, index: SubAddressIndex) -> Result<(), failure::Error> {
+    pub fn add_address(&mut self, index: SubAddressIndex) -> Result<(), Error> {
         let address = self.get_address_for_index(&index);
 
-        let account = self
-            .accounts
-            .get_mut(&index.0)
-            .ok_or_else(|| format_err!("Account at major index {} does not exist!", index.0))?;
+        let account = self.accounts.get_mut(&index.0).ok_or(Error::DoesNotExist)?;
 
         account.addresses.insert(index.1, address);
         Ok(())

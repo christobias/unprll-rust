@@ -64,11 +64,8 @@ impl WalletStore {
         self.add_wallet(wallet_name, wallet)
     }
 
-    pub fn get_wallet(&self, wallet_name: &str) -> Result<Arc<RwLock<Wallet<Unprll>>>, Error> {
-        self.wallets
-            .get(wallet_name)
-            .cloned()
-            .ok_or_else(|| format_err!("Wallet {} not found", wallet_name))
+    pub fn get_wallet(&self, wallet_name: &str) -> Option<Arc<RwLock<Wallet<Unprll>>>> {
+        self.wallets.get(wallet_name).cloned()
     }
 
     pub fn save_wallets(&self) -> Result<(), Error> {

@@ -15,6 +15,22 @@ use crypto::{
 
 use crate::Matrix;
 
+/// Error type for MLSAG operations
+#[derive(Fail, Debug)]
+pub enum Error {
+    /// Returned when the signature parameters are inconsistent
+    #[fail(display = "Input parameters are inconsistent")]
+    InconsistentParameters,
+
+    /// Returned when the signature is inconsistent
+    #[fail(display = "Signature is inconsistent")]
+    InconsistentSignature,
+
+    /// Returned when the signature fails to verify correctly
+    #[fail(display = "Signature is invalid")]
+    InvalidSignature,
+}
+
 /// MLSAG signature
 #[allow(missing_docs)]
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,22 +60,20 @@ pub fn sign(
     index: usize,
     signer_keys: &[SecretKey],
     double_spendable_keys: usize,
-) -> Result<Signature, failure::Error> {
+) -> Result<Signature, Error> {
     // Assertions to ensure input sanity
     // NOTE: KeyMatrix rows contain key vectors, whose columns contain keys
     let rows = ring.rows();
     if rows < 2 {
-        return Err(format_err!("Ring must contain more than 1 member"));
+        return Err(Error::InconsistentParameters);
     }
     if index >= rows {
-        return Err(format_err!("Index of signer is outside ring length"));
+        return Err(Error::InconsistentParameters);
     }
 
     let cols = ring.cols();
     if signer_keys.len() != cols {
-        return Err(format_err!(
-            "Signer key vector is not consistent with ring matrix"
-        ));
+        return Err(Error::InconsistentParameters);
     }
 
     // Generate key images
@@ -161,29 +175,25 @@ pub fn verify(
     ring: &Matrix<CompressedPoint>,
     signature: &Signature,
     double_spendable_keys: usize,
-) -> Result<(), failure::Error> {
+) -> Result<(), Error> {
     // Assertions for input sanity
     let rows = ring.rows();
     if rows < 2 {
-        return Err(format_err!("Ring must contain more than 1 member"));
+        return Err(Error::InconsistentSignature);
     }
 
     let cols = ring.cols();
     if cols < 1 {
-        return Err(format_err!("Ring does not contain any public keys"));
+        return Err(Error::InconsistentSignature);
     }
     if double_spendable_keys > cols {
-        return Err(format_err!(
-            "Number of double spendable keys greater than number of keys"
-        ));
+        return Err(Error::InconsistentSignature);
     }
     if signature.s.rows() != rows || signature.s.cols() != cols {
-        return Err(format_err!("S matrix does not match ring"));
+        return Err(Error::InconsistentSignature);
     }
     if signature.key_images.len() != double_spendable_keys {
-        return Err(format_err!(
-            "Number of double spendable keys does not equal number of key images"
-        ));
+        return Err(Error::InconsistentSignature);
     }
 
     let Signature {
@@ -231,7 +241,7 @@ pub fn verify(
     }
 
     if last_c != *c_0 {
-        return Err(format_err!("MLSAG failed verification"));
+        return Err(Error::InvalidSignature);
     }
     Ok(())
 }
@@ -271,14 +281,18 @@ mod tests {
         let sig_keys: Vec<_> = (0..3)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
-        assert!(sign(
+
+        let res = sign(
             crypto::KeyPair::generate().secret_key.as_bytes(),
             &ring,
             0,
             &sig_keys,
-            3
-        )
-        .is_err());
+            3,
+        );
+        match res.unwrap_err() {
+            Error::InconsistentParameters => {}
+            _ => panic!("Wrong error type"),
+        }
     }
 
     #[test]
@@ -287,14 +301,18 @@ mod tests {
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
-        assert!(sign(
+
+        let res = sign(
             crypto::KeyPair::generate().secret_key.as_bytes(),
             &ring,
             2,
             &sig_keys,
-            2
-        )
-        .is_err());
+            2,
+        );
+        match res.unwrap_err() {
+            Error::InconsistentParameters => {}
+            _ => panic!("Wrong error type"),
+        }
     }
 
     #[test]
@@ -303,13 +321,17 @@ mod tests {
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
-        assert!(sign(
+
+        let res = sign(
             crypto::KeyPair::generate().secret_key.as_bytes(),
             &ring,
             0,
             &sig_keys,
-            3
-        )
-        .is_err());
+            3,
+        );
+        match res.unwrap_err() {
+            Error::InconsistentParameters => {}
+            _ => panic!("Wrong error type"),
+        }
     }
 }

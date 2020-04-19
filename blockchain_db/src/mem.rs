@@ -7,7 +7,7 @@ use common::{Block, GetHash, Transaction};
 use crypto::{Hash256, KeyImage};
 
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::BlockchainDBDriver;
 
 #[derive(Serialize, Deserialize)]
@@ -68,9 +68,9 @@ impl BlockchainDBDriver for BlockchainMemDB {
         false
     }
     fn sync(&self) -> Result<()> {
-        let file = File::create(&self.db_path)?;
+        let file = File::create(&self.db_path).map_err(|err| Error::Internal(err.into()))?;
 
-        bincode_epee::serialize_into(file, &self).map_err(failure::Error::from)?;
+        bincode_epee::serialize_into(file, &self).map_err(|err| Error::Internal(err.into()))?;
         debug!("Saved MemDB file");
 
         Ok(())
@@ -113,38 +113,30 @@ impl BlockchainDBDriver for BlockchainMemDB {
         // TODO:
         100
     }
-    fn get_tail(&self) -> Result<(u64, Block)> {
+    fn get_tail(&self) -> Option<(u64, Block)> {
         let mut height: u64 = self.block_heights.iter().count().try_into().unwrap();
         if height != 0 {
             height -= 1
         }
 
-        Ok((
-            height,
-            self.get_block_by_height(height)
-                .ok_or_else(|| format_err!("Chain does not have any blocks"))?,
-        ))
+        Some((height, self.get_block_by_height(height)?))
     }
-    fn pop_block(&mut self) -> Result<Block> {
+    fn pop_block(&mut self) -> Option<Block> {
         let (height, _) = self.get_tail()?;
-        let block_id = self
-            .block_heights
-            .get(&height)
-            .ok_or_else(|| format_err!("Block at height {} does not exist", height))?;
+        let block_id = self.block_heights.get(&height)?;
 
         // At this point, it can be assumed the block exists on both tables
         let (_, block) = self
             .blocks
             .remove_entry(block_id)
             .expect("Inconsistent state");
-        self.sync()?;
-        Ok(block)
+        Some(block)
     }
 
     fn add_transaction(&mut self, transaction: Transaction) -> Result<()> {
         self.transactions
             .insert(transaction.get_hash(), transaction);
-        self.sync()
+        Ok(())
     }
     fn get_transaction(&self, id: &Hash256) -> Option<Transaction> {
         self.transactions.get(id).cloned()
@@ -152,7 +144,7 @@ impl BlockchainDBDriver for BlockchainMemDB {
 
     fn add_key_image(&mut self, key_image: KeyImage) -> Result<()> {
         self.key_images.push(key_image);
-        self.sync()
+        Ok(())
     }
     fn has_key_image(&self, key_image: &KeyImage) -> bool {
         self.key_images.contains(key_image)

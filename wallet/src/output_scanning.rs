@@ -120,8 +120,7 @@ where
                             self.accounts
                                 .get_mut(&index.0)
                                 .unwrap()
-                                .increment_balance(output.amount)
-                                .expect("Incrementing balance");
+                                .increment_balance(output.amount);
 
                             return Some(output_secret_key);
                         }

@@ -18,7 +18,7 @@ pub trait GetHash {
 /// Trait for specifying that the implementor requires input data to satisfy certain conditions
 ///
 /// Users can use this trait to do certain checks before more expensive checks
-pub trait PreliminaryChecks<T> {
+pub trait PreliminaryChecks<T, E> {
     /// Checks a given input according to the implementor's prerequisites
     ///
     /// # Returns
@@ -26,5 +26,5 @@ pub trait PreliminaryChecks<T> {
     ///
     /// # Errors
     /// If the input doesn't satisfy the implementor's prerequisites
-    fn check(&self, value: &T) -> Result<(), failure::Error>;
+    fn check(&self, value: &T) -> Result<(), E>;
 }

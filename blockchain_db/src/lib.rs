@@ -1,5 +1,16 @@
 #![deny(missing_docs)]
 //! Interfaces for communicating to the backing database of a blockchain
+//!
+//! The blockchain DB maintains the main chain and ensures the following
+//! assumptions hold true:
+//!
+//! 1. The chain starts with a genesis block (null prev_id, height 0)
+//! 2. New blocks connect to the current main chain's tail with increasing heights
+//! 3. There are no duplicate transactions
+//! 4. There are no transactions that use spent key images
+//!
+//! The semantics of a valid block or transaction in a given chain is handled by
+//! the `Blockchain` struct for a given network
 
 #[macro_use]
 extern crate failure;
@@ -13,7 +24,7 @@ mod error;
 mod mem;
 
 pub use config::Config;
-pub use error::Result;
+pub use error::{Error, Result};
 
 /// Manages communication between the database and the rest of the application.
 trait BlockchainDBDriver {
@@ -31,8 +42,8 @@ trait BlockchainDBDriver {
     fn get_block_by_hash(&self, block_id: &Hash256) -> Option<Block>;
 
     // Zero index height, for consistency
-    fn get_tail(&self) -> Result<(u64, Block)>;
-    fn pop_block(&mut self) -> Result<Block>;
+    fn get_tail(&self) -> Option<(u64, Block)>;
+    fn pop_block(&mut self) -> Option<Block>;
 
     fn get_cumulative_difficulty(&self) -> u64;
 
@@ -106,7 +117,7 @@ impl BlockchainDB {
         self.db.get_block_by_hash(hash)
     }
     /// Gets the current chain tail
-    pub fn get_tail(&self) -> Result<(u64, Block)> {
+    pub fn get_tail(&self) -> Option<(u64, Block)> {
         self.db.get_tail()
     }
     /// Gets the transaction with the given txid
@@ -115,68 +126,61 @@ impl BlockchainDB {
     }
 }
 
-impl PreliminaryChecks<Block> for BlockchainDB {
+impl PreliminaryChecks<Block, Error> for BlockchainDB {
     fn check(&self, block: &Block) -> Result<()> {
         let block_id = block.get_hash();
         // Verify that:
 
-        let height;
-
-        if let TXIn::Gen(h) = block.miner_tx.prefix.inputs[0] {
-            height = h;
+        // 1. We have a genesis input
+        let height = if let TXIn::Gen(h) = block.miner_tx.prefix.inputs[0] {
+            Ok(h)
         } else {
-            return Err(format_err!(
-                "Block with ID {} does not have a genesis tx input",
-                block_id
-            ));
-        }
+            Err(Error::InvalidHeight)
+        }?;
 
-        // 1. This new block connects to our existing chain
+        // 2. This new block connects to our existing chain
         //                    - or -
         //    This block's height is 0 and connects to null
         let tail = self.db.get_tail();
-        if let Ok((_, tail_block)) = tail {
+        if let Some((_, tail_block)) = tail {
             if tail_block.get_hash() != block.header.prev_id {
-                return Err(format_err!("Block with ID {} does not connect to our chain (Our chain tail: {}, block's previous ID: {})", block_id, tail_block.get_hash(), block.header.prev_id));
+                return Err(Error::DoesNotConnect);
             }
         } else if block.header.prev_id != Hash256::null_hash() {
-            return Err(format_err!("Block with ID {} (supposed to be our genesis block) does not have a previous ID of {}", block_id, Hash256::null_hash()));
+            return Err(Error::DoesNotConnect);
         } else if height != 0 {
-            return Err(format_err!(
-                "Block with ID {} (supposed to be our genesis block) does not have a height of 0",
-                block_id
-            ));
+            return Err(Error::InvalidHeight);
         }
 
-        // 2. We don't have that block already
+        // 3. We don't have that block already
         // TODO: This might be redundant because having the same block would imply
         //       it doesn't connect to the chain tail
         if self.db.get_block_by_hash(&block_id).is_some() {
-            return Err(format_err!("Block with ID {} exists", block_id));
+            return Err(Error::Exists);
         }
 
-        // 3. It doesn't overwrite a block on an existing height
+        // 4. It doesn't overwrite a block on an existing height
         if self.db.get_block_by_height(height).is_some() {
-            return Err(format_err!("Block at height {} exists", height));
+            return Err(Error::Exists);
         }
 
         Ok(())
     }
 }
 
-impl PreliminaryChecks<Transaction> for BlockchainDB {
+impl PreliminaryChecks<Transaction, Error> for BlockchainDB {
     fn check(&self, transaction: &Transaction) -> Result<()> {
         let txid = transaction.get_hash();
-        // 4. We don't have any of the transactions already
+        // 5. We don't have any of the transactions already
         if self.db.get_transaction(&txid).is_some() {
-            return Err(format_err!("Transaction with ID {} exists", txid));
+            return Err(Error::Exists);
         }
 
         for input in transaction.prefix.inputs.iter() {
             if let TXIn::FromKey { key_image, .. } = input {
-                // 5. We don't have any of the key images already
+                // 6. We don't have any of the key images already
                 if self.db.has_key_image(key_image) {
-                    return Err(format_err!("Key image {:?} exists", *key_image));
+                    return Err(Error::Exists);
                 }
             }
         }

@@ -3,6 +3,9 @@
 //! # Blockchain management
 //! This crate handles the blockchain
 
+#[macro_use]
+extern crate failure;
+
 use std::{
     collections::VecDeque,
     pin::Pin,
@@ -11,14 +14,16 @@ use std::{
 
 use futures::Stream;
 
-use blockchain_db::{BlockchainDB, Result};
+use blockchain_db::BlockchainDB;
 use common::{Block, GetHash, PreliminaryChecks, Transaction};
 use crypto::Hash256;
 
 mod config;
+mod error;
 mod traits;
 
 pub use config::Config;
+pub use error::{Error, Result};
 pub use traits::EmissionCurve;
 
 /// An interface to the stored blockchain
@@ -98,7 +103,7 @@ where
         }
 
         // Print a log message for confirmation
-        let (height, _) = self.get_tail()?;
+        let (height, _) = self.get_tail().expect("Main chain tail does not exist");
         log::info!(
             "Added new block:\tBlock ID: {}\tBlock Height: {}",
             block.get_hash(),
@@ -116,7 +121,7 @@ where
     ///
     /// # Returns
     /// A `(block height, Block)` tuple
-    pub fn get_tail(&self) -> Result<(u64, Block)> {
+    pub fn get_tail(&self) -> Option<(u64, Block)> {
         self.blockchain_db.get_tail()
     }
 
@@ -127,36 +132,23 @@ where
     }
 }
 
-impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
+impl<TCoin: EmissionCurve> PreliminaryChecks<Block, Error> for Blockchain<TCoin> {
     fn check(&self, block: &Block) -> Result<()> {
         // Do the blockchain DB prechecks
         self.blockchain_db.check(block)?;
 
         // The coinbase transaction must have only one input and output
-        if block.miner_tx.prefix.inputs.len() != 1 {
-            return Err(failure::format_err!(
-                "Block {}'s coinbase transaction does not have exactly one input!",
-                block.get_hash()
-            ));
-        }
-
-        if block.miner_tx.prefix.outputs.len() != 1 {
-            return Err(failure::format_err!(
-                "Block {}'s coinbase transaction does not have exactly one output!",
-                block.get_hash()
-            ));
+        if block.miner_tx.prefix.inputs.len() != 1 || block.miner_tx.prefix.outputs.len() != 1 {
+            return Err(Error::InvalidGenesisTransaction);
         }
 
         // The coinbase amount must match the coin's emission curve
         if block.miner_tx.prefix.outputs[0].amount
             != self
                 .coin_definition
-                .get_block_reward(block.header.major_version)?
+                .get_block_reward(block.header.major_version)
         {
-            return Err(failure::format_err!(
-                "Block {}'s coinbase transaction does not follow the coin's emission curve!",
-                block.get_hash()
-            ));
+            return Err(Error::InvalidGenesisTransaction);
         }
 
         Ok(())
