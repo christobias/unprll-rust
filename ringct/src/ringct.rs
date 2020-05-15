@@ -72,7 +72,7 @@ impl From<MLSAGError> for Error {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// ECDH encoded tuple of amount and mask
 pub struct ECDHTuple {
     /// Encoded Amount in bytes
@@ -82,7 +82,7 @@ pub struct ECDHTuple {
 }
 
 /// Defines the type of RingCT signature
-#[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RingCTType {
     /// Placeholder for an empty RingCT signature
     Null = 0,
@@ -95,7 +95,7 @@ pub enum RingCTType {
 }
 
 /// Non-prunable RingCT base information
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RingCTBase {
     /// Type of signature
     pub signature_type: RingCTType,
@@ -121,7 +121,7 @@ pub struct RingCTBase {
 ///
 /// Contains the non-prunable base information and
 /// the prunable sections
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RingCTSignature {
     /// Non-prunable base
     pub base: RingCTBase,

@@ -64,7 +64,7 @@ impl Commitment {
 }
 
 /// Non-zero 2D array of data
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Matrix<T>(Vec<Vec<T>>);
 
 impl<T> Matrix<T> {

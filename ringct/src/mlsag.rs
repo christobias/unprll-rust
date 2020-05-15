@@ -33,10 +33,12 @@ pub enum Error {
 
 /// MLSAG signature
 #[allow(missing_docs)]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub s: Matrix<Scalar>,
     pub c: Scalar,
+
+    /// Key Images
     pub key_images: Vec<KeyImage>,
 }
 

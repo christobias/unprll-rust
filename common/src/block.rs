@@ -80,7 +80,8 @@ impl Block {
                     unlock_delta: 3,
                     version: 1
                 },
-                signatures: Vec::new()
+                signatures: Vec::new(),
+                rct_signatures: Vec::new(),
             },
             tx_hashes: Vec::new()
         }

@@ -2,6 +2,7 @@ use digest::Digest;
 use serde::{Deserialize, Serialize};
 
 use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
+use ringct::ringct::RingCTSignature;
 
 use crate::GetHash;
 
@@ -71,7 +72,10 @@ pub struct Transaction {
     /// Signatures to prove ownership and authorize the transaction
     ///
     /// Usually empty for RingCT transactions
-    pub signatures: Vec<Vec<Signature>>, // rct_signatures
+    pub signatures: Vec<Vec<Signature>>,
+
+    /// RingCT Signatures to prove ownership, authorize the transaction and hide amounts
+    pub rct_signatures: Vec<RingCTSignature>,
 }
 
 impl GetHash for Transaction {

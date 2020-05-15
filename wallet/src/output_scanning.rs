@@ -203,6 +203,7 @@ mod tests {
                     extra: vec![TXExtra::TxPublicKey(tx_pub_key.compress())],
                 },
                 signatures: Vec::new(),
+                rct_signatures: Vec::new(),
             };
 
             // Scan the transaction
