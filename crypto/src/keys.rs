@@ -1,5 +1,4 @@
 use crate::ecc::{CompressedPoint, Scalar, BASEPOINT_TABLE};
-use rand;
 use serde::{Deserialize, Serialize};
 
 /// An unsigned 256-bit value used as a private key. Represented with lowercase letters

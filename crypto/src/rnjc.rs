@@ -3,7 +3,6 @@ use byteorder::ByteOrder;
 use blake_hash::Blake256;
 use groestl_aesni::Groestl256;
 use jh_x86_64::Jh256;
-use keccak;
 use sha3::{Digest, Keccak256Full};
 use skein_hash::Skein512;
 
