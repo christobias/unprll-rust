@@ -14,7 +14,7 @@ use std::{
 
 use futures::Stream;
 
-use blockchain_db::BlockchainDB;
+use blockchain_db::{BlockchainDB, Error as BlockchainDBError};
 use common::{Block, GetHash, PreliminaryChecks, Transaction};
 use crypto::Hash256;
 
@@ -35,8 +35,8 @@ where
     alternative_blocks: Vec<Block>,
     blockchain_db: BlockchainDB,
     coin_definition: TCoin,
-    pending_wake: Option<Waker>,
     events: VecDeque<Block>,
+    pending_wake: Option<Waker>,
 }
 
 impl<TCoin> Blockchain<TCoin>
@@ -49,8 +49,8 @@ where
             alternative_blocks: Vec::new(),
             blockchain_db: BlockchainDB::new(&config.blockchain_db_config),
             coin_definition,
-            pending_wake: None,
             events: VecDeque::new(),
+            pending_wake: None,
         };
         if blockchain.blockchain_db.get_block_by_height(0).is_none() {
             // Add the genesis block
@@ -90,7 +90,23 @@ where
     /// If any of the pre-checks fail
     pub fn add_new_block(&mut self, block: Block) -> Result<()> {
         // Do all prechecks
-        self.check(&block)?;
+        let check = self.check(&block);
+
+        // If they fail, it could be considered an alt chain block
+        if let Err(Error::DBError(error)) = check {
+            if let BlockchainDBError::DoesNotConnect = error {
+                // Block does not connect to our chain. Store as an alt chain block
+                // TODO: Add any alt chain blocks if the connect to our chain eventually
+                log::warn!("Potential alt chain block received");
+                self.alternative_blocks.push(block.clone());
+
+                Err(Error::AltChainBlock)
+            } else {
+                Err(Error::DBError(error))
+            }
+        } else {
+            check
+        }?;
 
         // Add the block
         // TODO: Add transactions once the mempool is done
@@ -99,11 +115,11 @@ where
         // Notify any pending futures
         if let Some(waker) = self.pending_wake.take() {
             waker.wake();
-            self.events.push_back(block.clone());
+            self.events.push_back(block);
         }
 
         // Print a log message for confirmation
-        let (height, _) = self.get_tail().expect("Main chain tail does not exist");
+        let (height, block) = self.get_tail().expect("Main chain tail does not exist");
         log::info!(
             "Added new block:\tBlock ID: {}\tBlock Height: {}",
             block.get_hash(),

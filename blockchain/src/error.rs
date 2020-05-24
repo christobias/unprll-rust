@@ -10,6 +10,10 @@ pub enum Error {
     #[fail(display = "Block's genesis transaction does not follow network semantics")]
     InvalidGenesisTransaction,
 
+    /// Returned when a block is part of an alternative chain
+    #[fail(display = "Block is from an alternative chain")]
+    AltChainBlock,
+
     /// Returned when the blockchain DB returns an error
     #[fail(display = "{}", _0)]
     DBError(BlockchainDBError),

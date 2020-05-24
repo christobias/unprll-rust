@@ -91,7 +91,8 @@ where
 
                 for block in blocks {
                     if blockchain.get_block(&block.get_hash()).is_none() {
-                        blockchain.add_new_block(block).unwrap();
+                        // TODO: Drop connection if block was invalid (alt chain blocks allowed)
+                        blockchain.add_new_block(block).unwrap_or(());
                     }
                 }
 
