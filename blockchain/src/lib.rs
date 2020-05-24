@@ -148,7 +148,9 @@ where
     }
 }
 
-impl<TCoin: EmissionCurve> PreliminaryChecks<Block, Error> for Blockchain<TCoin> {
+impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
+    type Error = Error;
+
     fn check(&self, block: &Block) -> Result<()> {
         // Do the blockchain DB prechecks
         self.blockchain_db.check(block)?;

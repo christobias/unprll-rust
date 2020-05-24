@@ -126,7 +126,9 @@ impl BlockchainDB {
     }
 }
 
-impl PreliminaryChecks<Block, Error> for BlockchainDB {
+impl PreliminaryChecks<Block> for BlockchainDB {
+    type Error = Error;
+
     fn check(&self, block: &Block) -> Result<()> {
         let block_id = block.get_hash();
         // Verify that:
@@ -168,7 +170,9 @@ impl PreliminaryChecks<Block, Error> for BlockchainDB {
     }
 }
 
-impl PreliminaryChecks<Transaction, Error> for BlockchainDB {
+impl PreliminaryChecks<Transaction> for BlockchainDB {
+    type Error = Error;
+
     fn check(&self, transaction: &Transaction) -> Result<()> {
         let txid = transaction.get_hash();
         // 5. We don't have any of the transactions already
