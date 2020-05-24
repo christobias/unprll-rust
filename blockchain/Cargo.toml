@@ -13,4 +13,6 @@ failure = "0.1"
 futures = "0.3"
 hex = "0.3"
 log = "0.4"
+ringct = { path = "../ringct" }
 structopt = "0.2"
+txpool = { path = "../txpool" }

@@ -17,6 +17,7 @@ use futures::Stream;
 use blockchain_db::{BlockchainDB, Error as BlockchainDBError};
 use common::{Block, GetHash, PreliminaryChecks, Transaction};
 use crypto::Hash256;
+use txpool::TXPool;
 
 mod config;
 mod error;
@@ -37,6 +38,7 @@ where
     coin_definition: TCoin,
     events: VecDeque<Block>,
     pending_wake: Option<Waker>,
+    tx_pool: TXPool,
 }
 
 impl<TCoin> Blockchain<TCoin>
@@ -51,6 +53,7 @@ where
             coin_definition,
             events: VecDeque::new(),
             pending_wake: None,
+            tx_pool: TXPool::new(),
         };
         if blockchain.blockchain_db.get_block_by_height(0).is_none() {
             // Add the genesis block
@@ -157,7 +160,7 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
         // The coinbase transaction must have only one input and output
         if block.miner_tx.prefix.inputs.len() != 1 || block.miner_tx.prefix.outputs.len() != 1 {
-            return Err(Error::InvalidGenesisTransaction);
+            return Err(Error::InvalidTransaction);
         }
 
         // The coinbase amount must match the coin's emission curve
@@ -166,7 +169,29 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
                 .coin_definition
                 .get_block_reward(block.header.major_version)
         {
-            return Err(Error::InvalidGenesisTransaction);
+            return Err(Error::InvalidTransaction);
+        }
+
+        // The block must contain transactions that we've got in our mempool
+        for txid in &block.tx_hashes {
+            if !self.tx_pool.has_tx(txid) {
+                return Err(Error::ExtraneousTransaction);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<TCoin: EmissionCurve> PreliminaryChecks<Transaction> for Blockchain<TCoin> {
+    type Error = Error;
+
+    fn check(&self, transaction: &Transaction) -> Result<()> {
+        // Do the blockchain DB prechecks
+        self.blockchain_db.check(transaction)?;
+
+        // The transaction must have a valid RingCT signature
+        if ringct::ringct::verify_multiple(&transaction.rct_signatures).is_err() {
+            return Err(Error::InvalidTransaction);
         }
 
         Ok(())
