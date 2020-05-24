@@ -317,7 +317,9 @@ dependencies = [
  "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ringct 0.1.0",
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "txpool 0.1.0",
 ]
 
 [[package]]
@@ -478,6 +480,7 @@ dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ringct 0.1.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2650,7 +2653,6 @@ dependencies = [
 name = "txpool"
 version = "0.1.0"
 dependencies = [
- "blockchain 1.0.0",
  "common 1.0.0",
  "crypto 1.0.0",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
