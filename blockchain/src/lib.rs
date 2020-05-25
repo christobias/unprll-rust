@@ -111,9 +111,12 @@ where
             check
         }?;
 
+        let transactions = block.tx_hashes.iter().map(|txid| {
+            self.tx_pool.remove_transaction(txid).unwrap()
+        }).collect::<Vec<_>>();
+
         // Add the block
-        // TODO: Add transactions once the mempool is done
-        self.blockchain_db.add_block(block.clone(), Vec::new())?;
+        self.blockchain_db.add_block(block.clone(), transactions)?;
 
         // Notify any pending futures
         if let Some(waker) = self.pending_wake.take() {
@@ -174,26 +177,12 @@ impl<TCoin: EmissionCurve> PreliminaryChecks<Block> for Blockchain<TCoin> {
 
         // The block must contain transactions that we've got in our mempool
         for txid in &block.tx_hashes {
-            if !self.tx_pool.has_tx(txid) {
+            if !self.tx_pool.has_transaction(txid) {
                 return Err(Error::ExtraneousTransaction);
             }
         }
-        Ok(())
-    }
-}
 
-impl<TCoin: EmissionCurve> PreliminaryChecks<Transaction> for Blockchain<TCoin> {
-    type Error = Error;
-
-    fn check(&self, transaction: &Transaction) -> Result<()> {
-        // Do the blockchain DB prechecks
-        self.blockchain_db.check(transaction)?;
-
-        // The transaction must have a valid RingCT signature
-        if ringct::ringct::verify_multiple(&transaction.rct_signatures).is_err() {
-            return Err(Error::InvalidTransaction);
-        }
-
+        // Transactions can only be added to the chain if they're in mempool, hence TXPool handles transaction verification
         Ok(())
     }
 }

@@ -4,6 +4,7 @@
 //! amounts in a transaction from public view
 
 use std::iter::Sum;
+use std::borrow::Borrow;
 
 use serde::{Deserialize, Serialize};
 
@@ -343,8 +344,10 @@ pub fn sign(
 ///
 /// ## Returns
 /// An empty tuple if the signature is valid, else an Error
-pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), Error> {
+pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<(), Error> {
     for signature in signatures {
+        let signature = signature.borrow();
+
         // Currently we've only got Bulletproof outputs
         if let RingCTType::Null = signature.base.signature_type {
             return Err(Error::InvalidSignatureType);
@@ -391,12 +394,14 @@ pub fn verify_multiple(signatures: &[RingCTSignature]) -> Result<(), Error> {
     bulletproof::verify_multiple(
         &signatures
             .iter()
-            .flat_map(|x| x.bulletproofs.iter())
+            .flat_map(|x| x.borrow().bulletproofs.iter())
             .collect::<Vec<_>>(),
     )?;
 
     // Check the MLSAGs
     for signature in signatures {
+        let signature = signature.borrow();
+
         // pre_mlsag_hash
         let message = get_pre_mlsag_hash(signature);
 

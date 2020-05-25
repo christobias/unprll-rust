@@ -8,3 +8,4 @@ edition = "2018"
 common = { path = "../common" }
 crypto = { path = "../crypto" }
 failure = "0.1"
+ringct = { path = "../ringct" }
