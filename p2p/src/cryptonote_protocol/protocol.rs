@@ -52,18 +52,21 @@ pub enum CryptonoteP2PMessage {
     GetTransactions(Vec<Hash256>),
 }
 
-impl From<()> for CryptonoteP2PMessage {
+impl From<()> for CryptonoteP2PUpgrade {
     fn from(_: ()) -> Self {
-        CryptonoteP2PMessage::Empty
+        CryptonoteP2PUpgrade(CryptonoteP2PMessage::Empty)
+    }
+}
+
+impl From<CryptonoteP2PMessage> for CryptonoteP2PUpgrade {
+    fn from(message: CryptonoteP2PMessage) -> Self {
+        CryptonoteP2PUpgrade(message)
     }
 }
 
 /// Handles sending the actual message to the network
 #[derive(Clone)]
-pub struct CryptonoteP2PUpgrade {
-    /// Message to be sent
-    pub message: CryptonoteP2PMessage,
-}
+pub struct CryptonoteP2PUpgrade(pub CryptonoteP2PMessage);
 
 impl UpgradeInfo for CryptonoteP2PUpgrade {
     type Info = &'static [u8];
@@ -104,7 +107,7 @@ where
     fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet =
-                bincode::serialize(&self.message).map_err(|_| std::io::ErrorKind::InvalidInput)?;
+                bincode::serialize(&self.0).map_err(|_| std::io::ErrorKind::InvalidInput)?;
             upgrade::write_one(&mut socket, packet).await?;
             Ok(())
         })
