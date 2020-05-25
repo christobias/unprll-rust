@@ -11,7 +11,7 @@ common = { path = "../common" }
 cryptonote_core = { path = "../core" }
 failure = "0.1"
 futures = "0.3"
-libp2p = { version = "0.17", default-features = false, features = ["tcp", "dns", "secio", "mplex", "websocket", "yamux"] }
+libp2p = { version = "0.19", default-features = false, features = ["tcp-async-std", "dns", "secio", "mplex", "websocket", "yamux"] }
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.2"
