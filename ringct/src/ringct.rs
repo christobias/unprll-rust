@@ -3,8 +3,8 @@
 //! Ring Confidential Transactions is a signature scheme used to hide
 //! amounts in a transaction from public view
 
-use std::iter::Sum;
 use std::borrow::Borrow;
+use std::iter::Sum;
 
 use serde::{Deserialize, Serialize};
 

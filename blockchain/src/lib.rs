@@ -111,9 +111,11 @@ where
             check
         }?;
 
-        let transactions = block.tx_hashes.iter().map(|txid| {
-            self.tx_pool.remove_transaction(txid).unwrap()
-        }).collect::<Vec<_>>();
+        let transactions = block
+            .tx_hashes
+            .iter()
+            .map(|txid| self.tx_pool.remove_transaction(txid).unwrap())
+            .collect::<Vec<_>>();
 
         // Add the block
         self.blockchain_db.add_block(block.clone(), transactions)?;

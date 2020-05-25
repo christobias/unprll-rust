@@ -23,8 +23,7 @@ impl TXPool {
         self.check(&transactions)?;
 
         for tx in transactions {
-            self.transactions
-                .insert(tx.get_hash(), tx.clone());
+            self.transactions.insert(tx.get_hash(), tx.clone());
         }
 
         Ok(())
@@ -43,10 +42,13 @@ impl PreliminaryChecks<&[Transaction]> for TXPool {
     type Error = failure::Error;
 
     fn check(&self, transactions: &&[Transaction]) -> Result<()> {
-        let signatures = transactions.iter().flat_map(|tx| tx.rct_signatures.iter()).collect::<Vec<_>>();
+        let signatures = transactions
+            .iter()
+            .flat_map(|tx| tx.rct_signatures.iter())
+            .collect::<Vec<_>>();
 
         if ringct::ringct::verify_multiple(&signatures).is_err() {
-            return Err(failure::format_err!("Invalid RingCT signatures"))
+            return Err(failure::format_err!("Invalid RingCT signatures"));
         }
         Ok(())
     }

@@ -49,15 +49,26 @@ where
         }
     }
 
-    fn send_message(&mut self, connection_id: ConnectionId, peer_id: PeerId, message: CryptonoteP2PMessage) {
-        self.pending_messages.push_back(NetworkBehaviourAction::NotifyHandler {
-            event: CryptonoteP2PUpgrade(message),
-            handler: NotifyHandler::One(connection_id),
-            peer_id
-        });
+    fn send_message(
+        &mut self,
+        connection_id: ConnectionId,
+        peer_id: PeerId,
+        message: CryptonoteP2PMessage,
+    ) {
+        self.pending_messages
+            .push_back(NetworkBehaviourAction::NotifyHandler {
+                event: CryptonoteP2PUpgrade(message),
+                handler: NotifyHandler::One(connection_id),
+                peer_id,
+            });
     }
 
-    fn handle_message(&mut self, peer_id: PeerId, connection_id: ConnectionId, message: CryptonoteP2PMessage) {
+    fn handle_message(
+        &mut self,
+        peer_id: PeerId,
+        connection_id: ConnectionId,
+        message: CryptonoteP2PMessage,
+    ) {
         match message {
             CryptonoteP2PMessage::Empty => {}
             CryptonoteP2PMessage::Info(node_info) => {
@@ -79,7 +90,14 @@ where
                             current_height,
                             node_info.chain_height
                         );
-                        self.send_message(connection_id, peer_id, CryptonoteP2PMessage::GetBlocks(current_height + 1, current_height + 20))
+                        self.send_message(
+                            connection_id,
+                            peer_id,
+                            CryptonoteP2PMessage::GetBlocks(
+                                current_height + 1,
+                                current_height + 20,
+                            ),
+                        )
                     }
                 }
             }
@@ -102,7 +120,11 @@ where
 
                     drop(core);
 
-                    self.send_message(connection_id, peer_id, CryptonoteP2PMessage::GetBlocks(current_height + 1, current_height + 20));
+                    self.send_message(
+                        connection_id,
+                        peer_id,
+                        CryptonoteP2PMessage::GetBlocks(current_height + 1, current_height + 20),
+                    );
                 }
             }
             CryptonoteP2PMessage::Transactions(_transactions) => unimplemented!(),
@@ -117,7 +139,11 @@ where
 
                 drop(core);
 
-                self.send_message(connection_id, peer_id, CryptonoteP2PMessage::Info(node_info));
+                self.send_message(
+                    connection_id,
+                    peer_id,
+                    CryptonoteP2PMessage::Info(node_info),
+                );
             }
             CryptonoteP2PMessage::GetBlocks(start, end) => {
                 let core = self.core.read().unwrap();
@@ -142,7 +168,11 @@ where
 
                 drop(core);
 
-                self.send_message(connection_id, peer_id, CryptonoteP2PMessage::Transactions(transactions));
+                self.send_message(
+                    connection_id,
+                    peer_id,
+                    CryptonoteP2PMessage::Transactions(transactions),
+                );
             }
         }
     }
@@ -172,11 +202,12 @@ where
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        self.pending_messages.push_back(NetworkBehaviourAction::NotifyHandler {
-            event: CryptonoteP2PUpgrade(CryptonoteP2PMessage::GetInfo),
-            handler: NotifyHandler::Any,
-            peer_id: peer_id.clone()
-        });
+        self.pending_messages
+            .push_back(NetworkBehaviourAction::NotifyHandler {
+                event: CryptonoteP2PUpgrade(CryptonoteP2PMessage::GetInfo),
+                handler: NotifyHandler::Any,
+                peer_id: peer_id.clone(),
+            });
         self.peers.insert(peer_id.clone(), None);
         log::debug!("New peer connected: {}", peer_id);
     }
@@ -211,11 +242,14 @@ where
             // TODO FIXME: Blocking on a future feels incorrect within an async context
             if let Poll::Ready(Some(block)) = block.poll(context) {
                 for (peer_id, _) in self.peers.iter() {
-                    self.pending_messages.push_back(NetworkBehaviourAction::NotifyHandler {
-                        event: CryptonoteP2PUpgrade(CryptonoteP2PMessage::Blocks(vec![block.clone()])),
-                        handler: NotifyHandler::Any,
-                        peer_id: peer_id.clone(),
-                    });
+                    self.pending_messages
+                        .push_back(NetworkBehaviourAction::NotifyHandler {
+                            event: CryptonoteP2PUpgrade(CryptonoteP2PMessage::Blocks(vec![
+                                block.clone()
+                            ])),
+                            handler: NotifyHandler::Any,
+                            peer_id: peer_id.clone(),
+                        });
                 }
             }
         }
