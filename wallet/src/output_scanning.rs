@@ -138,8 +138,8 @@ mod tests {
     use common::{TXOut, TransactionPrefix};
     use crypto::KeyPair;
 
-    use crate::address::AddressType;
     use crate::test_definitions::TestCoin;
+    use common::AddressType;
 
     use super::*;
 

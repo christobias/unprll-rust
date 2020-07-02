@@ -1,8 +1,8 @@
 use byteorder::ByteOrder;
 
+use common::{Address, AddressPrefixes, SubAddressIndex};
 use crypto::{CNFastHash, Digest, SecretKey};
 
-use super::{Address, AddressPrefixes, SubAddressIndex};
 use crate::Wallet;
 
 impl<TCoin> Wallet<TCoin>

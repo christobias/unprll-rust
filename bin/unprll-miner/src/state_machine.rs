@@ -7,10 +7,9 @@ use std::{
 use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
 use coin_specific::{emission::EmissionCurve, Unprll};
-use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
+use common::{Address, Block, TXExtra, TXIn, TXOut, TXOutTarget};
 use crypto::{CNFastHash, Digest, Hash256, KeyPair};
 use rpc::api_definitions::DaemonRPC;
-use wallet::Address;
 
 use crate::config::Config;
 use crate::miner::Miner;

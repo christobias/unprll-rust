@@ -3,7 +3,8 @@ use std::sync::{Arc, RwLock};
 use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crypto::KeyPair;
-use wallet::{SubAddressIndex, Wallet};
+use common::SubAddressIndex;
+use wallet::Wallet;
 
 use crate::{api_definitions::*, wallet_store::WalletStore};
 

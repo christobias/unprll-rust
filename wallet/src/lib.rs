@@ -12,6 +12,7 @@ use std::convert::From;
 
 use serde::{Deserialize, Serialize};
 
+use common::{Address, AddressPrefixes, SubAddressIndex};
 use crypto::{CNFastHash, Digest, Hash256, KeyPair, ScalarExt, SecretKey};
 
 mod account;
@@ -22,13 +23,12 @@ mod output_scanning;
 mod test_definitions;
 
 use account::Account;
-pub use address::{Address, AddressPrefixes, SubAddressIndex};
 
 /// A Cryptonote Wallet
 #[derive(Serialize, Deserialize)]
 pub struct Wallet<TCoin>
 where
-    TCoin: address::AddressPrefixes,
+    TCoin: AddressPrefixes,
 {
     spend_keypair: KeyPair,
     view_keypair: KeyPair,
@@ -40,7 +40,7 @@ where
 
 impl<TCoin> Wallet<TCoin>
 where
-    TCoin: address::AddressPrefixes,
+    TCoin: AddressPrefixes,
 {
     /// Generate a wallet instance from a spend secret key and view secret key
     pub fn from_secret_keys(spend_secret_key: SecretKey, view_secret_key: SecretKey) -> Self {
