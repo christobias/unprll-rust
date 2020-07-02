@@ -69,10 +69,6 @@ pub struct TransactionPrefix {
 pub struct Transaction {
     /// This transaction's prefix
     pub prefix: TransactionPrefix,
-    /// Signatures to prove ownership and authorize the transaction
-    ///
-    /// Usually empty for RingCT transactions
-    pub signatures: Vec<Vec<Signature>>,
 
     /// RingCT Signatures to prove ownership, authorize the transaction and hide amounts
     pub rct_signatures: Vec<RingCTSignature>,
@@ -169,9 +165,10 @@ impl GetHash for Transaction {
             &bincode::serialize(&self.prefix).unwrap(),
         ));
         // Signatures hash
-        hashes.push(CNFastHash::digest(
-            &bincode::serialize(&self.signatures).unwrap(),
-        ));
+        // TODO: Put the empty hash needed for hash-compatibility
+        // hashes.push(CNFastHash::digest(
+        //     &bincode::serialize(&self.signatures).unwrap(),
+        // ));
         // TODO: RingCT Signatures hash
         // hashes[2] = CNFastHash::digest(&bincode::serialize(&self.signatures).unwrap());
 

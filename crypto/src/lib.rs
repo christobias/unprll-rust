@@ -10,7 +10,6 @@ mod cast_256;
 mod hash;
 mod keys;
 mod rnjc;
-mod signature;
 mod tree_hash;
 
 /// Common elliptic curve cryptography (ECC) operations
@@ -21,5 +20,4 @@ pub use ecc::ScalarExt;
 pub use hash::{CNFastHash, Hash256, Hash256Data};
 pub use keys::{KeyImage, KeyPair, PublicKey, SecretKey};
 pub use rnjc::RNJC;
-pub use signature::Signature;
 pub use tree_hash::tree_hash;
