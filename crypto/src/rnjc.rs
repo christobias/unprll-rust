@@ -77,7 +77,7 @@ impl RNJC {
         hash_state[..200].copy_from_slice(&Keccak256Full::digest(data));
 
         // Fill initializer buffer
-        let mut text: [u32; (INIT_SIZE_BYTE / 4)] = [0; (INIT_SIZE_BYTE / 4)];
+        let mut text: [u32; INIT_SIZE_BYTE / 4] = [0; INIT_SIZE_BYTE / 4];
         byteorder::LittleEndian::read_u32_into(
             &hash_state[64..(64 + INIT_SIZE_BYTE)],
             &mut text[..],
@@ -194,7 +194,7 @@ impl RNJC {
         }
 
         // Fill initializer buffer
-        let mut text: [u32; (INIT_SIZE_BYTE / 4)] = [0; (INIT_SIZE_BYTE / 4)];
+        let mut text: [u32; INIT_SIZE_BYTE / 4] = [0; INIT_SIZE_BYTE / 4];
         byteorder::LittleEndian::read_u32_into(
             &hash_state[64..(64 + INIT_SIZE_BYTE)],
             &mut text[..],
