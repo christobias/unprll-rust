@@ -17,7 +17,7 @@ pub mod ecc;
 pub use digest::Digest;
 
 pub use ecc::ScalarExt;
-pub use hash::{CNFastHash, Hash256, Hash256Data};
+pub use hash::{CNFastHash, Hash256, Hash256Data, Hash8, Hash8Data};
 pub use keys::{KeyImage, KeyPair, PublicKey, SecretKey};
 pub use rnjc::RNJC;
 pub use tree_hash::tree_hash;

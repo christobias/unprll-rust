@@ -60,6 +60,9 @@ where
                     TXExtra::TxPublicKey(key) => {
                         tx_pub_key = Some(key.decompress().unwrap());
                     }
+                    TXExtra::TxNonce(_) => {
+                        // TODO: Handle payment IDs
+                    }
                 }
             }
 

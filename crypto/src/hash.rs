@@ -8,9 +8,16 @@ use sha3::Keccak256Full;
 /// Type alias for compatibility with the digest crate
 pub type Hash256Data = generic_array::GenericArray<u8, generic_array::typenum::U32>;
 
+/// Type alias for compatibility with the digest crate
+pub type Hash8Data = generic_array::GenericArray<u8, generic_array::typenum::U8>;
+
 /// Representation of 256-bit hash values
 #[derive(Clone, Default, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Hash256(Hash256Data);
+
+/// Representation of 64-bit hash values
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct Hash8(Hash8Data);
 
 impl Hash256 {
     /// Gets a null hash (32 0-bytes)
@@ -48,6 +55,45 @@ impl TryFrom<&str> for Hash256 {
             return Err(hex::FromHexError::InvalidStringLength);
         }
         Ok(Hash256(Hash256Data::clone_from_slice(&hex::decode(data)?)))
+    }
+}
+
+impl Hash8 {
+    /// Gets a null hash (8 0-bytes)
+    pub fn null_hash() -> Self {
+        Hash8::from(Hash8Data::from([0; 8]))
+    }
+    /// Gets a reference to the internal byte buffer
+    pub fn data(&self) -> &Hash8Data {
+        &self.0
+    }
+}
+
+impl Display for Hash8 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+impl From<Hash8Data> for Hash8 {
+    fn from(data: Hash8Data) -> Self {
+        Hash8(data)
+    }
+}
+
+impl Into<String> for Hash8 {
+    fn into(self) -> String {
+        hex::encode(self.0)
+    }
+}
+
+impl TryFrom<&str> for Hash8 {
+    type Error = hex::FromHexError;
+    fn try_from(data: &str) -> Result<Self, Self::Error> {
+        if data.len() != 16 {
+            return Err(hex::FromHexError::InvalidStringLength);
+        }
+        Ok(Hash8(Hash8Data::clone_from_slice(&hex::decode(data)?)))
     }
 }
 

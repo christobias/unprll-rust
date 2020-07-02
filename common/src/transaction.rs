@@ -1,7 +1,7 @@
 use digest::Digest;
 use serde::{Deserialize, Serialize};
 
-use crypto::{CNFastHash, Hash256, Hash256Data, KeyImage, PublicKey, Signature};
+use crypto::{CNFastHash, Hash256, Hash256Data, Hash8, KeyImage, PublicKey};
 use ringct::ringct::RingCTSignature;
 
 use crate::GetHash;
@@ -42,11 +42,24 @@ pub struct TXOut {
     pub target: TXOutTarget,
 }
 
+/// Nonces added to the transaction
+///
+/// Currently stores only the encrypted payment ID
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum TXNonce {
+    /// The Encrypted Payment ID for this transaction
+    ///
+    /// Useful for identifying transactions by the receiver
+    EncryptedPaymentId(Hash8),
+}
+
 /// Extra information added to the transaction
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TXExtra {
     /// Public key of this transaction (for determining output secret key)
     TxPublicKey(PublicKey),
+    /// Nonces for this transaction
+    TxNonce(TXNonce),
 }
 
 /// Transaction prefix

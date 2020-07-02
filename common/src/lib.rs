@@ -18,4 +18,4 @@ mod transaction;
 pub use address::{Address, AddressPrefixes, AddressType, SubAddressIndex};
 pub use block::{Block, BlockHeader};
 pub use traits::{GetHash, PreliminaryChecks};
-pub use transaction::{TXExtra, TXIn, TXOut, TXOutTarget, Transaction, TransactionPrefix};
+pub use transaction::{TXExtra, TXIn, TXNonce, TXOut, TXOutTarget, Transaction, TransactionPrefix};
