@@ -102,14 +102,14 @@ impl WalletStore {
                 .blocks
                 .into_iter()
                 .flat_map(hex::decode)
-                .flat_map(|block_blob| bincode_epee::deserialize(&block_blob))
+                .flat_map(|block_blob| bincode::deserialize(&block_blob))
                 .collect();
 
             let transactions: HashMap<_, _> = response
                 .transactions
                 .into_iter()
                 .flat_map(hex::decode)
-                .flat_map(|tx_blob| bincode_epee::deserialize(&tx_blob))
+                .flat_map(|tx_blob| bincode::deserialize(&tx_blob))
                 .map(|tx: Transaction| (tx.get_hash(), tx))
                 .collect();
 

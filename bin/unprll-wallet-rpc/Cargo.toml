@@ -5,7 +5,6 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
-bincode_epee = { path = "../../bincode_epee" }
 bincode = "1.1"
 bin_common = { path = "../common" }
 coin_specific = { path = "../../coin_specific" }

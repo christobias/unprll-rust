@@ -4,7 +4,6 @@ members = [
   "bin/unprll-miner",
   "bin/unprll-wallet-rpc",
   "bin/unprlld",
-  "bincode_epee",
   "blockchain",
   "blockchain_db",
   "coin_specific",
@@ -15,5 +14,6 @@ members = [
   "ringct",
   "rpc",
   "txpool",
+  "varint",
   "wallet"
 ]

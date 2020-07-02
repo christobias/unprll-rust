@@ -78,72 +78,85 @@ pub struct Transaction {
     pub rct_signatures: Vec<RingCTSignature>,
 }
 
-impl GetHash for Transaction {
+impl GetHash for TransactionPrefix {
     fn get_hash_blob(&self) -> Vec<u8> {
-        let mut vec = Vec::with_capacity(std::mem::size_of_val(&self));
+        let mut vec = Vec::new();
 
         // Tx version
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.version).unwrap());
+        vec.extend_from_slice(&varint::serialize(self.version as u64));
 
         // Unlock delta
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.unlock_delta).unwrap());
+        vec.extend_from_slice(&varint::serialize(self.unlock_delta as u64));
 
         // Inputs
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.inputs.len()).unwrap());
-        for input in &self.prefix.inputs {
+        vec.extend_from_slice(&varint::serialize(self.inputs.len() as u64));
+        for input in &self.inputs {
             match input {
                 TXIn::Gen(height) => {
                     // Enum tag
-                    vec.extend_from_slice(&bincode_epee::serialize(&0xffu8).unwrap());
+                    vec.push(0xff);
 
                     // Input
-                    vec.extend_from_slice(&bincode_epee::serialize(height).unwrap());
+                    vec.extend_from_slice(&varint::serialize(*height as u64));
                 }
                 _ => unimplemented!(),
             }
         }
 
         // Outputs
-        vec.extend_from_slice(&bincode_epee::serialize(&self.prefix.outputs.len()).unwrap());
-        for output in &self.prefix.outputs {
+        vec.extend_from_slice(&varint::serialize(self.outputs.len() as u64));
+        for output in &self.outputs {
             // Amount
-            vec.extend_from_slice(&bincode_epee::serialize(&output.amount).unwrap());
+            vec.extend_from_slice(&varint::serialize(output.amount as u64));
 
             // Target
             match output.target {
                 TXOutTarget::ToKey { key } => {
                     // Enum tag
-                    vec.extend_from_slice(&bincode_epee::serialize(&0x02).unwrap());
+                    vec.extend_from_slice(&varint::serialize(0x02 as u64));
 
                     // Public Key
-                    vec.extend_from_slice(
-                        &bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap(),
-                    );
+                    vec.extend_from_slice(key.as_bytes());
                 }
             }
         }
 
         // Extra
         let mut extra_buf = Vec::new();
-        for extra in &self.prefix.extra {
+        for extra in &self.extra {
             match extra {
                 TXExtra::TxPublicKey(key) => {
                     // Enum tag
-                    extra_buf.extend_from_slice(&bincode_epee::serialize(&0x01).unwrap());
+                    extra_buf.extend_from_slice(&varint::serialize(0x01 as u64));
 
                     // Public Key
-                    extra_buf.extend_from_slice(
-                        &bincode_epee::serialize(&Hash256Data::from(key.to_bytes())).unwrap(),
-                    );
+                    extra_buf.extend_from_slice(key.as_bytes());
+                }
+                TXExtra::TxNonce(nonce) => {
+                    // Enum tag
+                    extra_buf.extend_from_slice(&varint::serialize(0x02 as u64));
+
+                    match nonce {
+                        TXNonce::EncryptedPaymentId(payment_id) => {
+                            // Enum tag
+                            extra_buf.extend_from_slice(&varint::serialize(0x01 as u64));
+
+                            // Payment ID
+                            extra_buf.extend_from_slice(payment_id.data());
+                        }
+                    }
                 }
             }
         }
-        vec.extend_from_slice(&bincode_epee::serialize(&extra_buf).unwrap());
+        vec.extend_from_slice(&varint::serialize(extra_buf.len() as u64));
+        vec.extend_from_slice(&extra_buf);
+        vec
+    }
+}
 
-        // Signatures
-        if !self.signatures.is_empty() {
-            vec.extend_from_slice(&bincode_epee::serialize(&self.signatures).unwrap());
-        }
+impl GetHash for Transaction {
+    fn get_hash_blob(&self) -> Vec<u8> {
+        let mut vec = self.prefix.get_hash_blob();
         vec
     }
     fn get_hash(&self) -> Hash256 {

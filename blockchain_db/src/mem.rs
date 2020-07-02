@@ -46,7 +46,7 @@ impl BlockchainMemDB {
 
         if let Ok(file) = file {
             info!("MemDB file found. Loading...");
-            bincode_epee::deserialize_from(file).unwrap()
+            bincode::deserialize_from(file).unwrap()
         } else {
             warn!("MemDB file doesn't exist. Generating new database...");
             let db = BlockchainMemDB {
@@ -70,7 +70,7 @@ impl BlockchainDBDriver for BlockchainMemDB {
     fn sync(&self) -> Result<()> {
         let file = File::create(&self.db_path).map_err(|err| Error::Internal(err.into()))?;
 
-        bincode_epee::serialize_into(file, &self).map_err(|err| Error::Internal(err.into()))?;
+        bincode::serialize_into(file, &self).map_err(|err| Error::Internal(err.into()))?;
         debug!("Saved MemDB file");
 
         Ok(())

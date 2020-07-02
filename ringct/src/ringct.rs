@@ -141,7 +141,7 @@ fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
     hasher.input(&[signature.base.signature_type as u8]);
     if signature.base.signature_type != RingCTType::Null {
         // Base
-        hasher.input(bincode_epee::serialize(&signature.base.fee).unwrap());
+        hasher.input(varint::serialize(signature.base.fee));
         for ecdh in &signature.base.ecdh_exchange {
             hasher.input(ecdh.mask.as_bytes());
             hasher.input(&ecdh.amount);

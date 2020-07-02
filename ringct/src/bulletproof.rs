@@ -190,7 +190,7 @@ fn get_power(base: Point, index: u64) -> Point {
 
     hasher.input(base.compress().as_bytes());
     hasher.input(b"bulletproof");
-    hasher.input(bincode_epee::serialize(&index).unwrap());
+    hasher.input(varint::serialize(index));
 
     let hash = hasher.result();
     // Double hash

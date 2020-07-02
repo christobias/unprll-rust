@@ -94,7 +94,7 @@ where
                             .flat_map(|block| &block.tx_hashes)
                             .map(|txid| {
                                 hex::encode(
-                                    bincode_epee::serialize(&blockchain.get_transaction(txid).expect(
+                                    bincode::serialize(&blockchain.get_transaction(txid).expect(
                                         "The blockchain must always have all transactions from confirmed blocks",
                                     ))
                                     .unwrap(),
@@ -105,7 +105,7 @@ where
                         Ok::<_, failure::Error>(GetBlocksResponse {
                             blocks: blocks
                                 .into_iter()
-                                .flat_map(|block| bincode_epee::serialize(&block))
+                                .flat_map(|block| bincode::serialize(&block))
                                 .map(hex::encode)
                                 .collect(),
                             transactions,
