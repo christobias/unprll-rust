@@ -4,6 +4,7 @@ use log::info;
 
 use common::{Block, GetHash, TXExtra, TXOutTarget, Transaction};
 use crypto::{CNFastHash, Digest, Hash256, SecretKey};
+use transaction_util::subaddress;
 
 use crate::{AddressPrefixes, SubAddressIndex, Wallet};
 
@@ -72,7 +73,7 @@ where
                         // Compute the common "tx scalar"
                         // H_s(aR)
                         let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
-                            (self.view_keypair.secret_key * tx_pub_key)
+                            (self.account_keys.view_keypair.secret_key * tx_pub_key)
                                 .compress()
                                 .as_bytes(),
                         ));
@@ -80,7 +81,7 @@ where
                         // Do the original Cryptonote derivation first
                         // H_s(aR)G + B
                         let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
-                            + self.spend_keypair.public_key.decompress().unwrap();
+                            + self.account_keys.spend_keypair.public_key.decompress().unwrap();
 
                         // Check if the output is to our standard address
                         let index_address_pair = if tx_pub_key == computed_pub_key {
@@ -112,12 +113,12 @@ where
                             let output_secret_key = if index == SubAddressIndex(0, 0) {
                                 // Main address derives things differently
                                 // H_s(aR) + b
-                                tx_scalar + self.spend_keypair.secret_key
+                                tx_scalar + self.account_keys.spend_keypair.secret_key
                             } else {
                                 // H_s(aR) + b + m_i
                                 tx_scalar
-                                    + self.spend_keypair.secret_key
-                                    + self.get_subaddress_secret_key(&index)
+                                    + self.account_keys.spend_keypair.secret_key
+                                    + subaddress::get_subaddress_secret_key(&self.account_keys, &index)
                             };
 
                             self.accounts
@@ -142,14 +143,14 @@ mod tests {
     use crypto::KeyPair;
 
     use crate::test_definitions::TestCoin;
-    use common::AddressType;
+    use transaction_util::address::AddressType;
 
     use super::*;
 
     #[test]
     fn it_receives_outputs_correctly() {
         // A test wallet
-        let mut wallet: Wallet<TestCoin> = Wallet::from(KeyPair::generate().secret_key);
+        let mut wallet: Wallet<TestCoin> = Wallet::from_spend_secret_key(KeyPair::generate().secret_key);
 
         // TODO: Replace with actual transaction sending code
         [
@@ -168,7 +169,7 @@ mod tests {
             // Add the subaddress and get its public keys
             wallet.add_account(index.0);
             wallet.add_address(index.clone()).unwrap();
-            let address = wallet.get_address_for_index(&index);
+            let address = subaddress::get_address_for_index::<TestCoin>(&wallet.account_keys, &index);
 
             // r
             let random_scalar = KeyPair::generate().secret_key;

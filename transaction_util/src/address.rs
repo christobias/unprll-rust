@@ -1,10 +1,12 @@
+//! Module for handling addresses
+
 use std::convert::{Into, TryFrom};
 
 use base58_monero::base58::Error as Base58Error;
-
+use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use crypto::{Hash256Data, Hash8, PublicKey};
+use crypto::{Hash8, PublicKey};
 
 /// Prefixes used to identify an address from its string representation
 pub trait AddressPrefixes {
@@ -47,10 +49,6 @@ pub struct Address<TPrefix: AddressPrefixes> {
 
     marker: std::marker::PhantomData<TPrefix>,
 }
-
-/// Tuple of (major, minor) index for a subaddress
-#[derive(Debug, Eq, Clone, Hash, PartialEq, Serialize, Deserialize)]
-pub struct SubAddressIndex(pub u32, pub u32);
 
 /// Error type for Address operations
 #[derive(Fail, Debug)]
@@ -177,7 +175,6 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,4 +243,3 @@ mod tests {
         );
     }
 }
-*/

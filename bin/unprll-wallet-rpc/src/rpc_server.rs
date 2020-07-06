@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crypto::KeyPair;
-use common::SubAddressIndex;
+use transaction_util::subaddress::SubAddressIndex;
 use wallet::Wallet;
 
 use crate::{api_definitions::*, wallet_store::WalletStore};
@@ -38,7 +38,7 @@ where
                 } => {
                     let spend_keypair = KeyPair::generate();
 
-                    let w = Wallet::from(spend_keypair.secret_key);
+                    let w = Wallet::from_spend_secret_key(spend_keypair.secret_key);
 
                     match self
                         .wallet_store

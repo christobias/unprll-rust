@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Address, AddressPrefixes, SubAddressIndex, Wallet};
+use transaction_util::subaddress::{self, SubAddressIndex};
+
+use crate::{Address, AddressPrefixes, Wallet};
 
 /// Error type for Address operations
 #[derive(Fail, Debug)]
@@ -65,7 +67,7 @@ where
     pub fn add_account(&mut self, major_index: u32) {
         self.accounts.insert(
             major_index,
-            Account::new(self.get_address_for_index(&SubAddressIndex(major_index, 0))),
+            Account::new(subaddress::get_address_for_index(&self.account_keys, &SubAddressIndex(major_index, 0))),
         );
     }
     /// Get the account at the given major index from the current wallet
@@ -75,7 +77,7 @@ where
 
     /// Add an address to the given account
     pub fn add_address(&mut self, index: SubAddressIndex) -> Result<(), Error> {
-        let address = self.get_address_for_index(&index);
+        let address = subaddress::get_address_for_index(&self.account_keys, &index);
 
         let account = self.accounts.get_mut(&index.0).ok_or(Error::DoesNotExist)?;
 
