@@ -6,12 +6,9 @@ use common::{Block, GetHash, TXExtra, TXOutTarget, Transaction};
 use crypto::{CNFastHash, Digest, Hash256, SecretKey};
 use transaction_util::subaddress;
 
-use crate::{AddressPrefixes, SubAddressIndex, Wallet};
+use crate::{SubAddressIndex, Wallet};
 
-impl<TCoin> Wallet<TCoin>
-where
-    TCoin: AddressPrefixes,
-{
+impl Wallet {
     /// Get the last checked block of the current wallet
     pub fn get_last_checked_block(&self) -> (&u64, &Hash256) {
         self.checked_blocks
@@ -81,7 +78,12 @@ where
                         // Do the original Cryptonote derivation first
                         // H_s(aR)G + B
                         let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
-                            + self.account_keys.spend_keypair.public_key.decompress().unwrap();
+                            + self
+                                .account_keys
+                                .spend_keypair
+                                .public_key
+                                .decompress()
+                                .unwrap();
 
                         // Check if the output is to our standard address
                         let index_address_pair = if tx_pub_key == computed_pub_key {
@@ -118,7 +120,10 @@ where
                                 // H_s(aR) + b + m_i
                                 tx_scalar
                                     + self.account_keys.spend_keypair.secret_key
-                                    + subaddress::get_subaddress_secret_key(&self.account_keys, &index)
+                                    + subaddress::get_subaddress_secret_key(
+                                        &self.account_keys,
+                                        &index,
+                                    )
                             };
 
                             self.accounts
@@ -142,7 +147,6 @@ mod tests {
     use common::{TXOut, TransactionPrefix};
     use crypto::KeyPair;
 
-    use crate::test_definitions::TestCoin;
     use transaction_util::address::AddressType;
 
     use super::*;
@@ -150,7 +154,7 @@ mod tests {
     #[test]
     fn it_receives_outputs_correctly() {
         // A test wallet
-        let mut wallet: Wallet<TestCoin> = Wallet::from_spend_secret_key(KeyPair::generate().secret_key);
+        let mut wallet: Wallet = Wallet::from_spend_secret_key(KeyPair::generate().secret_key);
 
         // TODO: Replace with actual transaction sending code
         [
@@ -169,7 +173,7 @@ mod tests {
             // Add the subaddress and get its public keys
             wallet.add_account(index.0);
             wallet.add_address(index.clone()).unwrap();
-            let address = subaddress::get_address_for_index::<TestCoin>(&wallet.account_keys, &index);
+            let address = subaddress::get_address_for_index(&wallet.account_keys, &index);
 
             // r
             let random_scalar = KeyPair::generate().secret_key;

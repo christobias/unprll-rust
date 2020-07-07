@@ -1,7 +1,5 @@
 //! Module for handling addresses
 
-use std::convert::{Into, TryFrom};
-
 use base58_monero::base58::Error as Base58Error;
 use failure::Fail;
 use serde::{Deserialize, Serialize};
@@ -37,17 +35,14 @@ impl Default for AddressType {
 
 /// Wrapper for the set of public keys in an address
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Address<TPrefix: AddressPrefixes> {
+pub struct Address {
     /// Type of address
     #[serde(skip)]
     pub address_type: AddressType,
-
     /// Public spend key
     pub spend_public_key: PublicKey,
     /// Public view key
     pub view_public_key: PublicKey,
-
-    marker: std::marker::PhantomData<TPrefix>,
 }
 
 /// Error type for Address operations
@@ -68,14 +63,13 @@ impl From<Base58Error> for Error {
     }
 }
 
-impl<TPrefix: AddressPrefixes> Address<TPrefix> {
+impl Address {
     /// Generate the standard address from the given public keys
     pub fn standard(spend_public_key: PublicKey, view_public_key: PublicKey) -> Self {
         Address {
             address_type: AddressType::Standard,
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData,
         }
     }
 
@@ -85,7 +79,6 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
             address_type: AddressType::SubAddress,
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData,
         }
     }
 
@@ -99,47 +92,11 @@ impl<TPrefix: AddressPrefixes> Address<TPrefix> {
             address_type: AddressType::Integrated(payment_id),
             spend_public_key,
             view_public_key,
-            marker: std::marker::PhantomData,
         }
     }
-}
 
-/// Get the string representation of an address
-impl<TPrefix: AddressPrefixes> Into<String> for &Address<TPrefix> {
-    fn into(self) -> String {
-        let mut address = Vec::new();
-
-        // Tag
-        let tag = match &self.address_type {
-            AddressType::Standard => TPrefix::STANDARD,
-            AddressType::SubAddress => TPrefix::SUBADDRESS,
-            AddressType::Integrated(payment_id) => TPrefix::INTEGRATED,
-        };
-        address.extend_from_slice(&varint::serialize(tag));
-
-        // Spend public key
-        address.extend_from_slice(&self.spend_public_key.to_bytes());
-
-        // View public key
-        address.extend_from_slice(&self.view_public_key.to_bytes());
-
-        // Base58
-        base58_monero::encode_check(&address).unwrap()
-    }
-}
-
-impl<TPrefix: AddressPrefixes> Into<String> for Address<TPrefix> {
-    fn into(self) -> String {
-        let reference = &self;
-        reference.into()
-    }
-}
-
-/// Get an Address from its string representation
-impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
-    type Error = Error;
-
-    fn try_from(data: &str) -> Result<Self, Self::Error> {
+    /// Converts a human readable Cryptonote address into an Address
+    pub fn from_address_string<TPrefix: AddressPrefixes>(data: &str) -> Result<Self, Error> {
         let data = base58_monero::decode_check(data)?;
 
         // Figure out the index where the varint prefix ends
@@ -173,6 +130,28 @@ impl<TPrefix: AddressPrefixes> TryFrom<&str> for Address<TPrefix> {
             Err(Error::InvalidPrefix)
         }
     }
+
+    /// Converts an Address to a human readable Cryptonote address
+    pub fn to_address_string<TPrefix: AddressPrefixes>(&self) -> String {
+        let mut address = Vec::new();
+
+        // Tag
+        let tag = match &self.address_type {
+            AddressType::Standard => TPrefix::STANDARD,
+            AddressType::SubAddress => TPrefix::SUBADDRESS,
+            AddressType::Integrated(payment_id) => TPrefix::INTEGRATED,
+        };
+        address.extend_from_slice(&varint::serialize(tag));
+
+        // Spend public key
+        address.extend_from_slice(&self.spend_public_key.to_bytes());
+
+        // View public key
+        address.extend_from_slice(&self.view_public_key.to_bytes());
+
+        // Base58
+        base58_monero::encode_check(&address).unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -192,8 +171,8 @@ mod tests {
                 .unwrap(),
         );
 
-        let address: Address<TestCoin> = Address::standard(spend_public_key, view_public_key);
-        let address: String = address.into();
+        let address = Address::standard(spend_public_key, view_public_key);
+        let address: String = address.to_address_string::<TestCoin>();
 
         assert_eq!(
             address,
@@ -204,7 +183,7 @@ mod tests {
     #[test]
     fn it_decodes_standard_string_addresses_properly() {
         // Unprll Donation address
-        let address: Address<TestCoin> = Address::try_from("UNP1Yn4gC4EBfxGByWr4CX8CLnvLRm3ZWEK7BEeiuwYe4SeVpqbRMZxKACWXQ1WCw3P2Zpt68rHZ94sehkF5o8Wn7NAC1PoBzh").unwrap();
+        let address = Address::from_address_string::<TestCoin>("UNP1Yn4gC4EBfxGByWr4CX8CLnvLRm3ZWEK7BEeiuwYe4SeVpqbRMZxKACWXQ1WCw3P2Zpt68rHZ94sehkF5o8Wn7NAC1PoBzh").unwrap();
 
         // Address type
         assert_eq!(address.address_type, AddressType::Standard);
@@ -225,7 +204,7 @@ mod tests {
     #[test]
     fn it_decodes_subaddress_string_addresses_properly() {
         // Unprll Donation wallet subaddress
-        let address: Address<TestCoin> = Address::try_from("UNPStVLMoCzdHGE7EeVNuuWeReeJQXDeEWtRfaCQJ7oJSMr4bYVpreqcP36SjwiCHF86z9bbQecaqcW6yH5ndWx2M6t69dcEoE2").unwrap();
+        let address = Address::from_address_string::<TestCoin>("UNPStVLMoCzdHGE7EeVNuuWeReeJQXDeEWtRfaCQJ7oJSMr4bYVpreqcP36SjwiCHF86z9bbQecaqcW6yH5ndWx2M6t69dcEoE2").unwrap();
 
         // Address type
         assert_eq!(address.address_type, AddressType::SubAddress);

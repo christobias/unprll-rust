@@ -3,7 +3,7 @@
 use byteorder::ByteOrder;
 use serde::{Deserialize, Serialize};
 
-use crate::{AccountKeys, Address, AddressPrefixes};
+use crate::{AccountKeys, Address};
 use crypto::{CNFastHash, Digest, SecretKey};
 
 /// Tuple of (major, minor) index for a subaddress
@@ -11,9 +11,12 @@ use crypto::{CNFastHash, Digest, SecretKey};
 pub struct SubAddressIndex(pub u32, pub u32);
 
 /// Get the address at a given index from the current wallet
-pub fn get_address_for_index<TCoin: AddressPrefixes>(account_keys: &AccountKeys, index: &SubAddressIndex) -> Address<TCoin> {
+pub fn get_address_for_index(account_keys: &AccountKeys, index: &SubAddressIndex) -> Address {
     if index == &SubAddressIndex(0, 0) {
-        return Address::standard(account_keys.spend_keypair.public_key, account_keys.view_keypair.public_key);
+        return Address::standard(
+            account_keys.spend_keypair.public_key,
+            account_keys.view_keypair.public_key,
+        );
     }
     // Subaddress secret key
     let subaddress_secret_key = get_subaddress_secret_key(account_keys, &index);
@@ -81,8 +84,8 @@ mod tests {
             (SubAddressIndex(*major, *minor), address_str)
         }).map(|(index, address_str)| -> (String, _) {
             // Get the address at that index
-            let address: Address<TestCoin> = get_address_for_index(&account_keys, &index);
-            (address.into(), (*address_str).to_string())
+            let address = get_address_for_index(&account_keys, &index);
+            (address.to_address_string::<TestCoin>(), (*address_str).to_string())
         }).for_each(|(computed_address, expected_address)| {
             // Should be equal to what it is on mainnet
             assert_eq!(

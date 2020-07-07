@@ -12,7 +12,7 @@ pub mod subaddress;
 mod test_definitions;
 
 pub use account_keys::AccountKeys;
-use address::{Address, AddressPrefixes};
+use address::Address;
 use subaddress::SubAddressIndex;
 
 /// A source entry for a given transaction
@@ -32,18 +32,17 @@ pub struct TXSource {
 }
 
 /// Destination type
-pub enum TXDestinationType<TCoin: AddressPrefixes> {
+pub enum TXDestinationType {
     /// Output amount is towards another address
-    PayToAddress(Address<TCoin>),
+    PayToAddress(Address),
     /// Output amount is to be sent back to us as change
-    Change(SubAddressIndex)
+    Change(SubAddressIndex),
 }
 
 /// A destination entry for a given transaction
-pub struct TXDestination<TCoin: AddressPrefixes> {
+pub struct TXDestination {
     /// Amount being paid to this destination
     pub amount: u64,
     /// Type of destination
-    pub destination_type: TXDestinationType<TCoin>,
+    pub destination_type: TXDestinationType,
 }
-

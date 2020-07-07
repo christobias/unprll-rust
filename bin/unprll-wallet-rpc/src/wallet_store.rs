@@ -5,7 +5,6 @@ use std::sync::{Arc, RwLock};
 use failure::Error;
 use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
-use coin_specific::Unprll;
 use common::{GetHash, Transaction};
 use rpc::api_definitions::DaemonRPC;
 use wallet::Wallet;
@@ -16,7 +15,7 @@ pub struct WalletStore {
     daemon_address: String,
     // refresh_interval: Interval,
     wallet_dir: std::path::PathBuf,
-    wallets: HashMap<String, Arc<RwLock<Wallet<Unprll>>>>,
+    wallets: HashMap<String, Arc<RwLock<Wallet>>>,
 }
 
 impl WalletStore {
@@ -42,7 +41,7 @@ impl WalletStore {
         )))
     }
 
-    pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet<Unprll>) -> Result<(), Error> {
+    pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet) -> Result<(), Error> {
         if self.wallets.contains_key(&wallet_name) {
             return Err(failure::format_err!(
                 "Wallet {} exists in memory",
@@ -64,7 +63,7 @@ impl WalletStore {
         self.add_wallet(wallet_name, wallet)
     }
 
-    pub fn get_wallet(&self, wallet_name: &str) -> Option<Arc<RwLock<Wallet<Unprll>>>> {
+    pub fn get_wallet(&self, wallet_name: &str) -> Option<Arc<RwLock<Wallet>>> {
         self.wallets.get(wallet_name).cloned()
     }
 

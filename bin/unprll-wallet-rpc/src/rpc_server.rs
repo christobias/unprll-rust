@@ -114,7 +114,10 @@ where
                             let address =
                                 wallet.get_address_for_index(&SubAddressIndex(major_index, index));
 
-                            response.addresses.insert(index, address.into());
+                            response.addresses.insert(
+                                index,
+                                address.to_address_string::<coin_specific::Unprll>(),
+                            );
                         }
                         Ok::<_, failure::Error>(response)
                     };

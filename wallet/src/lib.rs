@@ -12,37 +12,28 @@ use std::convert::From;
 
 use serde::{Deserialize, Serialize};
 
-use transaction_util::{
-    AccountKeys,
-    address::{Address, AddressPrefixes},
-    subaddress::{self, SubAddressIndex},
-};
 use crypto::{Hash256, SecretKey};
+use transaction_util::{
+    address::Address,
+    subaddress::{self, SubAddressIndex},
+    AccountKeys,
+};
 
 mod account;
 mod output_scanning;
-
-#[cfg(test)]
-mod test_definitions;
 
 use account::Account;
 
 /// A Cryptonote Wallet
 #[derive(Serialize, Deserialize)]
-pub struct Wallet<TCoin>
-where
-    TCoin: AddressPrefixes,
-{
+pub struct Wallet {
     account_keys: AccountKeys,
-    accounts: HashMap<u32, Account<TCoin>>,
+    accounts: HashMap<u32, Account>,
     checked_blocks: HashMap<u64, Hash256>,
 }
 
 /// Generate a wallet instance from an existing AccountKeys struct
-impl<TCoin> From<AccountKeys> for Wallet<TCoin>
-where
-    TCoin: AddressPrefixes,
-{
+impl From<AccountKeys> for Wallet {
     fn from(account_keys: AccountKeys) -> Self {
         let mut w = Wallet {
             account_keys,
@@ -69,10 +60,7 @@ where
     }
 }
 
-impl<TCoin> Wallet<TCoin>
-where
-    TCoin: AddressPrefixes,
-{
+impl Wallet {
     /// Deterministic wallet generation
     ///
     /// This allows having to store only one value (the spend secret key) while the others are computed
@@ -84,7 +72,7 @@ where
     }
 
     /// Shortcut method for determining the address for the given subaddress index
-    pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Address<TCoin> {
+    pub fn get_address_for_index(&self, index: &SubAddressIndex) -> Address {
         subaddress::get_address_for_index(&self.account_keys, &index)
     }
 }
@@ -94,11 +82,10 @@ mod tests {
     use crypto::ScalarExt;
 
     use super::*;
-    use test_definitions::TestCoin;
 
     #[test]
     fn it_works() {
-        let w: Wallet<TestCoin> = Wallet::from_spend_secret_key(SecretKey::from_slice(
+        let w: Wallet = Wallet::from_spend_secret_key(SecretKey::from_slice(
             &hex::decode("91ca5959117826861a8d3dba04ef036aba07ca4e02b9acf28fc1e3af25c4400a")
                 .unwrap(),
         ));

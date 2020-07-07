@@ -21,7 +21,7 @@ pub struct MinerStateMachine {
     last_checked: Instant,
     last_prev_id: Option<String>,
     miner: Miner,
-    miner_address: Address<Unprll>,
+    miner_address: Address,
 }
 
 impl MinerStateMachine {
@@ -32,7 +32,7 @@ impl MinerStateMachine {
             last_checked: Instant::now(),
             last_prev_id: None,
             miner: Miner::new(),
-            miner_address: Address::try_from(config.miner_address.as_str())?,
+            miner_address: Address::from_address_string::<Unprll>(config.miner_address.as_str())?,
         })
     }
 
