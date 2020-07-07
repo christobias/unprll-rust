@@ -47,7 +47,7 @@ impl PreliminaryChecks<&[Transaction]> for TXPool {
             .flat_map(|tx| tx.rct_signatures.iter())
             .collect::<Vec<_>>();
 
-        if ringct::ringct::verify_multiple(&signatures).is_err() {
+        if ringct::verify_multiple(&signatures).is_err() {
             return Err(failure::format_err!("Invalid RingCT signatures"));
         }
         Ok(())

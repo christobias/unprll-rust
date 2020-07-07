@@ -2,7 +2,7 @@ use digest::Digest;
 use serde::{Deserialize, Serialize};
 
 use crypto::{CNFastHash, Hash256, Hash256Data, Hash8, KeyImage, PublicKey};
-use ringct::ringct::RingCTSignature;
+use ringct::RingCTSignature;
 
 use crate::GetHash;
 

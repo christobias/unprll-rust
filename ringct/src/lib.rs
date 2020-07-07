@@ -129,4 +129,9 @@ impl<T> IndexMut<(usize, usize)> for Matrix<T> {
 
 pub mod bulletproof;
 pub mod mlsag;
-pub mod ringct;
+mod ringct;
+
+pub use crate::ringct::{
+    sign, verify_multiple, DestinationCommitmentPair, RingCTBase, RingCTInput, RingCTOutput,
+    RingCTSignature, RingCTType,
+};

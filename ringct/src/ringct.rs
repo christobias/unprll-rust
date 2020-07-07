@@ -95,6 +95,18 @@ pub enum RingCTType {
     Bulletproof2 = 4,
 }
 
+/// A pair of a destination public key and the corresponding commitment directed
+/// towards it
+///
+/// Also known as the public CT Key in Monero's implementation
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DestinationCommitmentPair {
+    /// Destination public key
+    pub destination: PublicKey,
+    /// Commitment addressed to the destination
+    pub commitment: PublicKey,
+}
+
 /// Non-prunable RingCT base information
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RingCTBase {
@@ -103,13 +115,9 @@ pub struct RingCTBase {
     /// Hash of message being signed
     pub message_hash: Hash256,
     /// Mixin ring
-    ///
-    /// Consists of 2-tuples of the form `(output key, commitment)`
-    pub mix_ring: Matrix<(PublicKey, PublicKey)>,
+    pub mix_ring: Matrix<DestinationCommitmentPair>,
     /// Output commitments
-    ///
-    /// Consists of 2-tuples of the form `(destination, commitment)`
-    pub output_commitments: Vec<(PublicKey, PublicKey)>,
+    pub output_commitments: Vec<DestinationCommitmentPair>,
     /// ECDH exchange for output amount and mask
     ///
     /// Used by the recepient to decode and retrieve the masked amounts
@@ -134,6 +142,30 @@ pub struct RingCTSignature {
     pub mlsag: Vec<MLSAGSignature>,
 }
 
+/// RingCT input
+pub struct RingCTInput {
+    /// Destination secret key
+    pub destination_secret_key: SecretKey,
+    /// Commitment secret key
+    pub commitment_secret_key: SecretKey,
+    /// Input amount
+    pub amount: u64,
+    /// Index of real input in mix ring
+    pub ring_index: u64,
+    /// Mix ring row for this input. Used to generate the mix ring
+    pub ring_row: Vec<DestinationCommitmentPair>,
+}
+
+/// RingCT output
+pub struct RingCTOutput {
+    /// Destination public key
+    pub destination_public_key: PublicKey,
+    /// Output amount
+    pub amount: u64,
+    /// Amount secret key
+    pub amount_secret_key: SecretKey,
+}
+
 /// Compute the message used when computing the MLSAG signature
 fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
     let mut hasher = CNFastHash::new();
@@ -146,8 +178,8 @@ fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
             hasher.input(ecdh.mask.as_bytes());
             hasher.input(&ecdh.amount);
         }
-        for (_, commitment) in &signature.base.output_commitments {
-            hasher.input(commitment.as_bytes());
+        for pair in &signature.base.output_commitments {
+            hasher.input(pair.commitment.as_bytes());
         }
 
         let base_hash = hasher.result_reset();
@@ -180,15 +212,11 @@ fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
 }
 
 /// Sign the given message hash with a RingCT signature
-///
-/// inputs: 3-tuple of the form ((Input destination secret key, Input commitment secret key), amount, ring index)
-/// outputs: 3-tuple of the form (Destination key, amount, amount key)
 pub fn sign(
     message_hash: Hash256,
-    inputs: &[((SecretKey, SecretKey), u64, usize)],
-    outputs: &[(PublicKey, u64, SecretKey)],
+    inputs: &[RingCTInput],
+    outputs: &[RingCTOutput],
     tx_fee: u64,
-    mix_ring: Matrix<(PublicKey, PublicKey)>,
 ) -> Result<RingCTSignature, Error> {
     // Sanitize all parameters
 
@@ -202,14 +230,19 @@ pub fn sign(
         return Err(Error::InvalidParameters);
     }
 
-    // Number of secret keys must match mixin ring size
-    if inputs.len() != mix_ring.rows() {
-        return Err(Error::InvalidParameters);
-    }
+    // Construct the mix ring from the inputs given, returning an error if inconsistent
+    let mix_ring = Matrix::from_iter(
+        inputs.len(),
+        inputs[0].ring_row.len(),
+        inputs
+            .iter()
+            .flat_map(|input| input.ring_row.iter().cloned()),
+    )
+    .ok_or(Error::InvalidParameters)?;
 
     // Input amounts should equal output amounts + fee
-    let in_total = inputs.iter().fold(0u64, |acc, (_, a, _)| acc + a);
-    let out_total = outputs.iter().fold(0u64, |acc, (_, a, _)| acc + a);
+    let in_total = inputs.iter().fold(0u64, |acc, input| acc + input.amount);
+    let out_total = outputs.iter().fold(0u64, |acc, output| acc + output.amount);
 
     if in_total != out_total + tx_fee {
         return Err(Error::NonZeroSum);
@@ -235,7 +268,7 @@ pub fn sign(
     let (bulletproof, output_masks) = bulletproof::prove_multiple(
         outputs
             .iter()
-            .map(|(_, amount, _)| *amount)
+            .map(|output| output.amount)
             .collect::<Vec<_>>()
             .as_slice(),
     )?;
@@ -243,25 +276,30 @@ pub fn sign(
     signature.bulletproofs.push(bulletproof);
 
     let mut sum_out_masks = SecretKey::zero();
-    for (((destination, amount, amount_key), mask), commitment) in outputs
+    for ((output, mask), commitment) in outputs
         .iter()
         .zip(output_masks)
         .zip(signature.bulletproofs[0].V.iter())
     {
+        // Add the output mask
         sum_out_masks += mask;
         signature
             .base
             .output_commitments
-            .push((*destination, commitment.mul_by_cofactor().compress()));
+            .push(DestinationCommitmentPair {
+                destination: output.destination_public_key,
+                commitment: commitment.mul_by_cofactor().compress(),
+            });
 
-        let shared_secret_1 = ecc::hash_to_scalar(CNFastHash::digest(amount_key.as_bytes()));
+        let shared_secret_1 =
+            ecc::hash_to_scalar(CNFastHash::digest(output.amount_secret_key.as_bytes()));
 
         match signature.base.signature_type {
             RingCTType::Bulletproof2 => {
-                let amount_mask = ecdh_utils::ecdh_hash(amount_key);
+                let amount_mask = ecdh_utils::ecdh_hash(&output.amount_secret_key);
 
                 signature.base.ecdh_exchange.push(ECDHTuple {
-                    amount: (SecretKey::from(*amount))
+                    amount: (SecretKey::from(output.amount))
                         .as_bytes()
                         .iter()
                         .zip(amount_mask.as_bytes())
@@ -276,8 +314,8 @@ pub fn sign(
 
     let mut sum_in_masks = SecretKey::zero();
     let mut input_masks = Vec::new();
-    for (_, amount, _) in inputs.iter().take(inputs.len() - 1) {
-        let commitment = Commitment::commit_to_value(*amount);
+    for input in inputs.iter().take(inputs.len() - 1) {
+        let commitment = Commitment::commit_to_value(input.amount);
 
         sum_in_masks += commitment.mask;
         input_masks.push(commitment.mask);
@@ -291,7 +329,7 @@ pub fn sign(
     input_masks.push(mask);
     let in_commit = Commitment {
         mask,
-        value: SecretKey::from(inputs.last().unwrap().1),
+        value: SecretKey::from(inputs.last().unwrap().amount),
     };
     signature
         .input_commitments
@@ -304,35 +342,33 @@ pub fn sign(
         input_masks,
         signature.input_commitments.iter()
     )
-    .map(
-        |(
-            mix_row,
-            ((destination_secret_key, commitment_secret_key), _, index),
-            input_mask,
-            input_commitment,
-        )| {
-            let mlsag_matrix = Matrix::from_iter(
-                mix_row.len(),
-                2,
-                mix_row.iter().flat_map(move |(destination, commitment)| {
-                    vec![
-                        *destination,
-                        (commitment.decompress().unwrap() - input_commitment.decompress().unwrap())
-                            .compress(),
-                    ]
-                }),
-            );
+    .map(|(mix_row, input, input_mask, input_commitment)| {
+        let mlsag_matrix = Matrix::from_iter(
+            mix_row.len(),
+            2,
+            mix_row.iter().flat_map(move |pair| {
+                vec![
+                    pair.destination,
+                    (pair.commitment.decompress().unwrap()
+                        - input_commitment.decompress().unwrap())
+                    .compress(),
+                ]
+            }),
+        )
+        .unwrap();
 
-            mlsag::sign(
-                &get_pre_mlsag_hash(&signature),
-                &mlsag_matrix,
-                *index,
-                &[*destination_secret_key, commitment_secret_key - input_mask],
-                1,
-            )
-            .unwrap()
-        },
-    )
+        mlsag::sign(
+            &get_pre_mlsag_hash(&signature),
+            &mlsag_matrix,
+            input.ring_index,
+            &[
+                input.destination_secret_key,
+                input.commitment_secret_key - input_mask,
+            ],
+            1,
+        )
+        .unwrap()
+    })
     .collect();
 
     signature.mlsag = mlsag_sigs;
@@ -377,7 +413,7 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
                 .base
                 .output_commitments
                 .iter()
-                .filter_map(|(_, commit)| commit.decompress())
+                .filter_map(|pair| pair.commitment.decompress())
                 .chain(std::iter::once(
                     // And the transaction fee
                     &SecretKey::from(signature.base.fee) * &*AMOUNT_BASEPOINT_TABLE,
@@ -419,13 +455,14 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
                 let mlsag_matrix = Matrix::from_iter(
                     mix_row.len(),
                     2,
-                    mix_row.iter().flat_map(move |(destination, commitment)| {
+                    mix_row.iter().flat_map(move |pair| {
                         vec![
-                            *destination,
-                            (commitment.decompress().unwrap() - input_commitment).compress(),
+                            pair.destination,
+                            (pair.commitment.decompress().unwrap() - input_commitment).compress(),
                         ]
                     }),
-                );
+                )
+                .unwrap();
 
                 mlsag::verify(&message, &mlsag_matrix, mlsag, 1)
             })
@@ -452,7 +489,6 @@ mod test {
         let message_hash = Hash256::from(CNFastHash::digest(b"Test message to be signed"));
 
         // 3 Inputs
-        let mut keys_commitments = Vec::new();
         let mut inputs = Vec::new();
         for i in 1..=3 {
             let amount = i as u64;
@@ -461,46 +497,45 @@ mod test {
             let destination_keypair = KeyPair::generate();
             let commitment = Commitment::commit_to_value(amount);
 
-            let index = (rand::rngs::OsRng.next_u32() % 10) as usize;
+            let ring_index = (rand::rngs::OsRng.next_u32() % 10) as u64;
 
             // a
-            inputs.push((
-                (destination_keypair.secret_key, commitment.mask),
+            inputs.push(RingCTInput {
+                destination_secret_key: destination_keypair.secret_key,
+                commitment_secret_key: commitment.mask,
                 amount,
-                index,
-            ));
-            keys_commitments.push((destination_keypair, commitment.into_public().compress()));
+                ring_index,
+                ring_row: (0..10)
+                    .clone()
+                    .map(move |i| {
+                        if i == ring_index {
+                            DestinationCommitmentPair {
+                                destination: destination_keypair.public_key,
+                                commitment: commitment.clone().into_public().compress(),
+                            }
+                        } else {
+                            DestinationCommitmentPair {
+                                destination: crypto::KeyPair::generate().public_key,
+                                commitment: crypto::KeyPair::generate().public_key,
+                            }
+                        }
+                    })
+                    .collect(),
+            });
         }
 
         let mut destinations = Vec::new();
         // 2 Outputs
         for i in 1..=2 {
             let kp = KeyPair::generate();
-            destinations.push((kp.public_key, i as u64, SecretKey::zero()));
+            destinations.push(RingCTOutput {
+                destination_public_key: kp.public_key,
+                amount: i as u64,
+                amount_secret_key: SecretKey::zero(),
+            });
         }
 
-        // Mix ring
-        let mix_ring = Matrix::from_iter(
-            keys_commitments.len(),
-            10,
-            keys_commitments.iter().zip(inputs.iter()).flat_map(
-                |((keypair, commitment), (_, _, index))| {
-                    // 10 Member Ring
-                    (0..10).clone().map(move |i| {
-                        if i == *index {
-                            (keypair.public_key, *commitment)
-                        } else {
-                            (
-                                crypto::KeyPair::generate().public_key,
-                                crypto::KeyPair::generate().public_key,
-                            )
-                        }
-                    })
-                },
-            ),
-        );
-
-        let signature = ringct::sign(message_hash, &inputs, &destinations, 3, mix_ring).unwrap();
+        let signature = ringct::sign(message_hash, &inputs, &destinations, 3).unwrap();
 
         ringct::verify_multiple(&[signature]).unwrap();
     }
@@ -973,24 +1008,26 @@ mod test {
                     ]
                     .iter()
                     .flat_map(|r| {
-                        r.iter().map(|(destination, commitment)| {
-                            (
-                                PublicKey::from_slice(&hex::decode(destination).unwrap()),
-                                PublicKey::from_slice(&hex::decode(commitment).unwrap()),
-                            )
-                        })
+                        r.iter()
+                            .map(|(destination, commitment)| DestinationCommitmentPair {
+                                destination: PublicKey::from_slice(
+                                    &hex::decode(destination).unwrap(),
+                                ),
+                                commitment: PublicKey::from_slice(
+                                    &hex::decode(commitment).unwrap(),
+                                ),
+                            })
                     }),
-                ),
+                )
+                .unwrap(),
                 output_commitments: [
                     "5324fa962edab083eef717f8dd9f2cced683671cf5f28081c83ee1171c054869",
                     "62c50265df62e8b6c78a1e320366684ab5873565ce0e17eaa4e1a28bab9d70f7",
                 ]
                 .iter()
-                .map(|x| {
-                    (
-                        PublicKey::from_slice(Hash256::null_hash().data()),
-                        PublicKey::from_slice(&hex::decode(x).unwrap()),
-                    )
+                .map(|x| DestinationCommitmentPair {
+                    destination: PublicKey::from_slice(Hash256::null_hash().data()),
+                    commitment: PublicKey::from_slice(&hex::decode(x).unwrap()),
                 })
                 .collect(),
                 signature_type: RingCTType::Bulletproof2,
@@ -1172,7 +1209,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "345fa251944a661131a79c979deb84f07ce9ba6186fbd3dbb661397416179102",
@@ -1249,7 +1287,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "9f77970fa63ec1ce9a2724d597433f75eadfaec8e482436d88e8e0223dfb1406",
@@ -1326,7 +1365,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "0c553a1d688e8ac929b5da160f88cff4027898d76ae2b2f37fd8ba3ce99bb70f",
@@ -1403,7 +1443,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "06fee335e6b5a5c2d62ee5bab4b17970df52e6a20ab4b74784963178c3af2604",
@@ -1480,7 +1521,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "320323b2248da5eb620fb63d94b2620a5384186a31009551d78cfd5c6014f90e",
@@ -1557,7 +1599,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "85c4bd08c3fe7126d5b3716d1b590c6e3b3305dbcd77a18906109e8a17c3d800",
@@ -1634,7 +1677,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "81775d06446993e763cbe1ac37030ac6a283b2a401f4c36bd1f724f7915bd50c",
@@ -1711,7 +1755,8 @@ mod test {
                             r.iter()
                                 .map(|c| SecretKey::from_slice(&hex::decode(&c).unwrap()))
                         }),
-                    ),
+                    )
+                    .unwrap(),
                     c: SecretKey::from_slice(
                         &hex::decode(
                             "b4654dfe8dc883747ad343fb850738de31f0eb32737f0b53813782674b0b6c0e",
