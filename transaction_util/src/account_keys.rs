@@ -12,11 +12,12 @@ pub struct AccountKeys {
 }
 
 /// Deterministic keypair generation
-/// 
+///
 /// The view secret key is derived by taking the Keccak (non-standard) hash of the spend secret key
 impl From<SecretKey> for AccountKeys {
     fn from(spend_secret_key: SecretKey) -> AccountKeys {
-        let view_secret_key = SecretKey::from_slice(&CNFastHash::digest(spend_secret_key.as_bytes()));
+        let view_secret_key =
+            SecretKey::from_slice(&CNFastHash::digest(spend_secret_key.as_bytes()));
 
         AccountKeys {
             spend_keypair: KeyPair::from(spend_secret_key),
@@ -27,7 +28,10 @@ impl From<SecretKey> for AccountKeys {
 
 impl AccountKeys {
     /// Generate an account keypair with distinct view and secret keys
-    pub fn from_non_deterministic_keys(spend_secret_key: SecretKey, view_secret_key: SecretKey) -> AccountKeys {
+    pub fn from_non_deterministic_keys(
+        spend_secret_key: SecretKey,
+        view_secret_key: SecretKey,
+    ) -> AccountKeys {
         AccountKeys {
             spend_keypair: KeyPair::from(spend_secret_key),
             view_keypair: KeyPair::from(view_secret_key),
