@@ -71,30 +71,45 @@ impl<T> Matrix<T> {
     /// Create a new Matrix from a function
     ///
     /// The closure is called with the current row and column as parameters
-    pub fn from_fn(rows: usize, cols: usize, closure: impl Fn(usize, usize) -> T) -> Matrix<T> {
-        assert_ne!(rows, 0);
-        assert_ne!(cols, 0);
-        Matrix(
+    pub fn from_fn(
+        rows: usize,
+        cols: usize,
+        closure: impl Fn(usize, usize) -> T,
+    ) -> Option<Matrix<T>> {
+        if rows == 0 || cols == 0 {
+            return None;
+        }
+
+        Some(Matrix(
             (0..rows)
                 .map(|row| (0..cols).map(|col| closure(row, col)).collect())
                 .collect(),
-        )
+        ))
     }
 
     /// Create a new Matrix from an iterator
     ///
     /// The given iterator is a one dimensional version of the matrix in row major order
-    pub fn from_iter(rows: usize, cols: usize, iter: impl IntoIterator<Item = T>) -> Matrix<T> {
-        assert_ne!(rows, 0);
-        assert_ne!(cols, 0);
+    pub fn from_iter(
+        rows: usize,
+        cols: usize,
+        iter: impl IntoIterator<Item = T>,
+    ) -> Option<Matrix<T>> {
+        if rows == 0 || cols == 0 {
+            return None;
+        }
+
         let mut iter = iter.into_iter();
         let m = Matrix(
             (0..rows)
-                .map(|_| (0..cols).map(|_| iter.next().unwrap()).collect())
-                .collect(),
+                .map(|_| (0..cols).map(|_| iter.next()).collect::<Option<_>>())
+                .collect::<Option<_>>()?,
         );
-        assert!(iter.next().is_none());
-        m
+        if iter.next().is_some() {
+            None
+        } else {
+            Some(m)
+        }
     }
 
     /// Get the number of rows in this matrix

@@ -45,7 +45,7 @@ pub struct Signature {
 impl Default for Signature {
     fn default() -> Signature {
         Signature {
-            s: Matrix::from_fn(0, 0, |_, _| Scalar::default()),
+            s: Matrix::from_fn(0, 0, |_, _| Scalar::default()).unwrap(),
             c: Scalar::default(),
             key_images: Vec::new(),
         }
@@ -59,12 +59,15 @@ impl Default for Signature {
 pub fn sign(
     message: &[u8],
     ring: &Matrix<CompressedPoint>,
-    index: usize,
+    index: u64,
     signer_keys: &[SecretKey],
-    double_spendable_keys: usize,
+    double_spendable_keys: u64,
 ) -> Result<Signature, Error> {
     // Assertions to ensure input sanity
     // NOTE: KeyMatrix rows contain key vectors, whose columns contain keys
+    let index = index as usize;
+    let double_spendable_keys = double_spendable_keys as usize;
+
     let rows = ring.rows();
     if rows < 2 {
         return Err(Error::InconsistentParameters);
@@ -90,7 +93,7 @@ pub fn sign(
 
     // Generate random scalar vector and matrix for signature
     let alpha: Vec<Scalar> = (0..cols).map(|_| Scalar::random(&mut OsRng)).collect();
-    let mut signature = Matrix::from_fn(rows, cols, |_, _| Scalar::random(&mut OsRng));
+    let mut signature = Matrix::from_fn(rows, cols, |_, _| Scalar::random(&mut OsRng)).unwrap();
 
     let mut hasher = CNFastHash::new();
 
@@ -264,11 +267,12 @@ mod tests {
             } else {
                 crypto::KeyPair::generate().public_key
             }
-        });
+        })
+        .unwrap();
 
         let sig_keys: Vec<_> = keypairs.iter().map(|x| x.secret_key).collect();
         let message = crypto::KeyPair::generate().secret_key;
-        let signature = sign(message.as_bytes(), &ring, index, &sig_keys, 1);
+        let signature = sign(message.as_bytes(), &ring, index as u64, &sig_keys, 1);
 
         assert!(signature.is_ok());
         let signature = signature.unwrap();
@@ -279,7 +283,7 @@ mod tests {
 
     #[test]
     fn it_refuses_single_member_rings() {
-        let ring = Matrix::from_fn(1, 3, |_, _| crypto::KeyPair::generate().public_key);
+        let ring = Matrix::from_fn(1, 3, |_, _| crypto::KeyPair::generate().public_key).unwrap();
         let sig_keys: Vec<_> = (0..3)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
@@ -299,7 +303,7 @@ mod tests {
 
     #[test]
     fn it_handles_out_of_bounds_secret_index() {
-        let ring = Matrix::from_fn(2, 2, |_, _| crypto::KeyPair::generate().public_key);
+        let ring = Matrix::from_fn(2, 2, |_, _| crypto::KeyPair::generate().public_key).unwrap();
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
@@ -319,7 +323,7 @@ mod tests {
 
     #[test]
     fn it_handles_inconsistent_signer_key_vectors() {
-        let ring = Matrix::from_fn(3, 3, |_, _| crypto::KeyPair::generate().public_key);
+        let ring = Matrix::from_fn(3, 3, |_, _| crypto::KeyPair::generate().public_key).unwrap();
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
