@@ -244,17 +244,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode_epee"
-version = "1.2.0"
-dependencies = [
- "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_bytes 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -337,7 +326,6 @@ name = "blockchain_db"
 version = "1.0.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "common 1.0.0",
  "crypto 1.0.0",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -461,9 +449,11 @@ dependencies = [
 name = "coin_specific"
 version = "0.1.0"
 dependencies = [
+ "common 1.0.0",
  "cryptonote_core 1.0.0",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+ "transaction_util 0.1.0",
  "wallet 0.1.0",
 ]
 
@@ -482,7 +472,6 @@ name = "common"
 version = "1.0.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "crypto 1.0.0",
  "digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -493,6 +482,7 @@ dependencies = [
  "ringct 0.1.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "varint 0.1.0",
 ]
 
 [[package]]
@@ -2140,7 +2130,6 @@ name = "ringct"
 version = "0.1.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "crypto 1.0.0",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2148,6 +2137,7 @@ dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+ "varint 0.1.0",
 ]
 
 [[package]]
@@ -2174,7 +2164,6 @@ name = "rpc"
 version = "0.1.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "common 1.0.0",
  "crypto 1.0.0",
  "cryptonote_core 1.0.0",
@@ -2311,14 +2300,6 @@ version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde_derive 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2658,6 +2639,22 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "transaction_util"
+version = "0.1.0"
+dependencies = [
+ "base58-monero 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common 1.0.0",
+ "crypto 1.0.0",
+ "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ringct 0.1.0",
+ "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+ "varint 0.1.0",
+]
+
+[[package]]
 name = "try-lock"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2760,6 +2757,7 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "transaction_util 0.1.0",
  "wallet 0.1.0",
 ]
 
@@ -2769,7 +2767,6 @@ version = "0.1.0"
 dependencies = [
  "bin_common 1.0.0",
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "coin_specific 0.1.0",
  "common 1.0.0",
  "crypto 1.0.0",
@@ -2783,6 +2780,7 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "transaction_util 0.1.0",
  "wallet 0.1.0",
 ]
 
@@ -2839,6 +2837,10 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "varint"
+version = "0.1.0"
+
+[[package]]
 name = "vcpkg"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2864,7 +2866,6 @@ version = "0.1.0"
 dependencies = [
  "base58-monero 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode_epee 1.2.0",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "common 1.0.0",
  "crypto 1.0.0",
@@ -2872,6 +2873,7 @@ dependencies = [
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+ "transaction_util 0.1.0",
 ]
 
 [[package]]
@@ -3303,7 +3305,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum semver-parser 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 "checksum send_wrapper 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a0eddf2e8f50ced781f288c19f18621fa72a3779e3cb58dbf23b07469b0abeb4"
 "checksum serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)" = "414115f25f818d7dfccec8ee535d76949ae78584fc4f79a6f45a904bf8ab4449"
-"checksum serde_bytes 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "325a073952621257820e7a3469f55ba4726d8b28657e7e36653d1c36dc2c84ae"
 "checksum serde_derive 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)" = "128f9e303a5a29922045a830221b8f78ec74a5f544944f3d5984f8ec3895ef64"
 "checksum serde_json 1.0.51 (registry+https://github.com/rust-lang/crates.io-index)" = "da07b57ee2623368351e9a0488bb0b261322a15a6e0ae53e243cbdc0f4208da9"
 "checksum sha-1 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "23962131a91661d643c98940b20fcaffe62d776a823247be80a48fcb8b6fce68"
