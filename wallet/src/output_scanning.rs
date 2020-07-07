@@ -58,7 +58,10 @@ impl Wallet {
                     TXExtra::TxPublicKey(key) => {
                         tx_pub_key = Some(key.decompress().unwrap());
                     }
-                    TXExtra::TxNonce(_) => {
+                    TXExtra::TxAdditionalPublicKeys(keys) => {
+                        // TODO: Handle additional keys
+                    }
+                    TXExtra::TxNonce(nonce) => {
                         // TODO: Handle payment IDs
                     }
                 }

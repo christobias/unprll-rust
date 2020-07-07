@@ -14,8 +14,6 @@ pub enum TXIn {
     Gen(u64),
     /// Coins from an existing "ToKey" output
     FromKey {
-        /// Amount of coins sent (0 for RingCT outputs)
-        amount: u64,
         /// Relative offsets of each output in the ring
         key_offsets: Vec<u64>,
         /// Key image of the sender's output
@@ -58,6 +56,8 @@ pub enum TXNonce {
 pub enum TXExtra {
     /// Public key of this transaction (for determining output secret key)
     TxPublicKey(PublicKey),
+    /// Additional public keys for this transaction
+    TxAdditionalPublicKeys(Vec<PublicKey>),
     /// Nonces for this transaction
     TxNonce(TXNonce),
 }
@@ -140,6 +140,12 @@ impl GetHash for TransactionPrefix {
 
                     // Public Key
                     extra_buf.extend_from_slice(key.as_bytes());
+                }
+                TXExtra::TxAdditionalPublicKeys(keys) => {
+                    // Enum tag
+                    extra_buf.extend_from_slice(&varint::serialize(0x04 as u64));
+                    // Public Keys
+                    extra_buf.extend(keys.iter().flat_map(|key| key.as_bytes()));
                 }
                 TXExtra::TxNonce(nonce) => {
                     // Enum tag
