@@ -56,6 +56,9 @@ impl Default for Signature {
 ///
 /// The version implemented in Monero differs from the version defined in
 /// the RingCT whitepaper in that it allows specifying which keys need a key image
+///
+/// NOTE: The mixin ring uses CompressedPoint as most of MLSAG involves hashing
+/// compressed public keys
 pub fn sign(
     message: &[u8],
     ring: &Matrix<CompressedPoint>,
@@ -163,8 +166,6 @@ pub fn sign(
         signature[(index, i_key)] = a - (vec_c[index] * signer_keys[i_key]);
     }
 
-    let key_images = key_images.iter().map(|x| x.compress()).collect();
-
     let s = Signature {
         s: signature,
         c: vec_c[0],
@@ -224,7 +225,7 @@ pub fn verify(
                 * crypto::ecc::hash_to_point(CNFastHash::digest(
                     ring[(i_key_vector, i_key)].as_bytes(),
                 )))
-                + (last_c * key_images[i_key].decompress().unwrap());
+                + (last_c * key_images[i_key]);
 
             // pubkey || L || R
             hasher.input(ring[(i_key_vector, i_key)].as_bytes());
@@ -267,6 +268,7 @@ mod tests {
             } else {
                 crypto::KeyPair::generate().public_key
             }
+            .compress()
         })
         .unwrap();
 
@@ -283,7 +285,10 @@ mod tests {
 
     #[test]
     fn it_refuses_single_member_rings() {
-        let ring = Matrix::from_fn(1, 3, |_, _| crypto::KeyPair::generate().public_key).unwrap();
+        let ring = Matrix::from_fn(1, 3, |_, _| {
+            crypto::KeyPair::generate().public_key.compress()
+        })
+        .unwrap();
         let sig_keys: Vec<_> = (0..3)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
@@ -303,7 +308,10 @@ mod tests {
 
     #[test]
     fn it_handles_out_of_bounds_secret_index() {
-        let ring = Matrix::from_fn(2, 2, |_, _| crypto::KeyPair::generate().public_key).unwrap();
+        let ring = Matrix::from_fn(2, 2, |_, _| {
+            crypto::KeyPair::generate().public_key.compress()
+        })
+        .unwrap();
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();
@@ -323,7 +331,10 @@ mod tests {
 
     #[test]
     fn it_handles_inconsistent_signer_key_vectors() {
-        let ring = Matrix::from_fn(3, 3, |_, _| crypto::KeyPair::generate().public_key).unwrap();
+        let ring = Matrix::from_fn(3, 3, |_, _| {
+            crypto::KeyPair::generate().public_key.compress()
+        })
+        .unwrap();
         let sig_keys: Vec<_> = (0..2)
             .map(|_| crypto::KeyPair::generate().secret_key)
             .collect();

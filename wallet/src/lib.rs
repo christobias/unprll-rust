@@ -100,7 +100,13 @@ mod tests {
         );
         // Spend public key
         assert_eq!(
-            hex::encode(w.account_keys.spend_keypair.public_key.to_bytes()),
+            hex::encode(
+                w.account_keys
+                    .spend_keypair
+                    .public_key
+                    .compress()
+                    .to_bytes()
+            ),
             "4dcff6ae0b5313938e718bb033907fee6cddc053f4d44c41bd0f9fed5ea7cef7"
         );
 
@@ -112,7 +118,7 @@ mod tests {
 
         // View public key
         assert_eq!(
-            hex::encode(w.account_keys.view_keypair.public_key.to_bytes()),
+            hex::encode(w.account_keys.view_keypair.public_key.compress().to_bytes()),
             "8b66a0e272063786cc769c295486552e39797c57243612047bff9845c8cc66c8"
         );
     }

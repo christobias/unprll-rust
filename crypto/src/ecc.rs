@@ -23,6 +23,18 @@ pub trait ScalarExt {
 
 impl ScalarExt for Scalar {}
 
+/// Helper Extension Trait for Point
+pub trait PointExt {
+    /// Generates a Point from a [u8] slice
+    ///
+    /// Constructs a CompressedPoint from the slice and decompresses it
+    fn from_slice(data: &[u8]) -> Point {
+        CompressedPoint::from_slice(data).decompress().unwrap()
+    }
+}
+
+impl PointExt for Point {}
+
 pub use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED as BASEPOINT_COMPRESSED;
 pub use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as BASEPOINT;
 pub use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE as BASEPOINT_TABLE;

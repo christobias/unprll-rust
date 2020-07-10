@@ -179,7 +179,7 @@ fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
             hasher.input(&ecdh.amount);
         }
         for pair in &signature.base.output_commitments {
-            hasher.input(pair.commitment.as_bytes());
+            hasher.input(pair.commitment.compress().as_bytes());
         }
 
         let base_hash = hasher.result_reset();
@@ -288,7 +288,7 @@ pub fn sign(
             .output_commitments
             .push(DestinationCommitmentPair {
                 destination: output.destination_public_key,
-                commitment: commitment.mul_by_cofactor().compress(),
+                commitment: commitment.mul_by_cofactor(),
             });
 
         let shared_secret_1 =
@@ -320,9 +320,7 @@ pub fn sign(
         sum_in_masks += commitment.mask;
         input_masks.push(commitment.mask);
 
-        signature
-            .input_commitments
-            .push(commitment.into_public().compress());
+        signature.input_commitments.push(commitment.into_public());
     }
 
     let mask = sum_out_masks - sum_in_masks;
@@ -331,9 +329,7 @@ pub fn sign(
         mask,
         value: SecretKey::from(inputs.last().unwrap().amount),
     };
-    signature
-        .input_commitments
-        .push(in_commit.into_public().compress());
+    signature.input_commitments.push(in_commit.into_public());
 
     // Compute the MLSAG signature
     let mlsag_sigs = itertools::izip!(
@@ -348,10 +344,8 @@ pub fn sign(
             2,
             mix_row.iter().flat_map(move |pair| {
                 vec![
-                    pair.destination,
-                    (pair.commitment.decompress().unwrap()
-                        - input_commitment.decompress().unwrap())
-                    .compress(),
+                    pair.destination.compress(),
+                    (pair.commitment - input_commitment).compress(),
                 ]
             }),
         )
@@ -400,12 +394,7 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
         //       into one sum and check?
 
         // Add all the input commitments
-        let sum_ins = Point::sum(
-            signature
-                .input_commitments
-                .iter()
-                .filter_map(|x| x.decompress()),
-        );
+        let sum_ins = Point::sum(signature.input_commitments.iter());
 
         // Add the output commitments
         let sum_outs = Point::sum(
@@ -413,7 +402,7 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
                 .base
                 .output_commitments
                 .iter()
-                .filter_map(|pair| pair.commitment.decompress())
+                .map(|pair| pair.commitment)
                 .chain(std::iter::once(
                     // And the transaction fee
                     &SecretKey::from(signature.base.fee) * &*AMOUNT_BASEPOINT_TABLE,
@@ -446,10 +435,7 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
             .iter()
             .zip(signature.base.mix_ring.row_iter())
             .zip(signature.input_commitments.iter())
-            .filter_map(|((mlsag, mix_row), input_commitment)| {
-                Some((mlsag, mix_row, input_commitment.decompress()?))
-            })
-            .map(|(mlsag, mix_row, input_commitment)| {
+            .map(|((mlsag, mix_row), input_commitment)| {
                 // For each value at corresponding indices,
 
                 let mlsag_matrix = Matrix::from_iter(
@@ -457,8 +443,8 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
                     2,
                     mix_row.iter().flat_map(move |pair| {
                         vec![
-                            pair.destination,
-                            (pair.commitment.decompress().unwrap() - input_commitment).compress(),
+                            pair.destination.compress(),
+                            (pair.commitment - input_commitment).compress(),
                         ]
                     }),
                 )
@@ -479,7 +465,7 @@ mod test {
 
     use rand::RngCore;
 
-    use crypto::{KeyImage, KeyPair, ScalarExt};
+    use crypto::{ecc::PointExt, KeyImage, KeyPair, ScalarExt};
 
     use super::*;
     use crate::ringct;
@@ -511,7 +497,7 @@ mod test {
                         if i == ring_index {
                             DestinationCommitmentPair {
                                 destination: destination_keypair.public_key,
-                                commitment: commitment.clone().into_public().compress(),
+                                commitment: commitment.clone().into_public(),
                             }
                         } else {
                             DestinationCommitmentPair {
@@ -531,7 +517,7 @@ mod test {
             destinations.push(RingCTOutput {
                 destination_public_key: kp.public_key,
                 amount: i as u64,
-                amount_secret_key: SecretKey::zero(),
+                amount_secret_key: SecretKey::random(&mut rand::rngs::OsRng),
             });
         }
 
@@ -1039,7 +1025,7 @@ mod test {
                 ]
                 .iter()
                 .map(|x| hex::decode(x).unwrap())
-                .map(|x| PublicKey::from_slice(&x).decompress().unwrap())
+                .map(|x| PublicKey::from_slice(&x))
                 // NOTE: Remember to multiply by eight inverse in actual code
                 .map(|x| x * SecretKey::from(8u64).invert())
                 .collect(),
@@ -1048,33 +1034,25 @@ mod test {
                         "85df863be3a385365b82cfbef09aaa87267522265e9dc7d8f5cf32440bcf3996",
                     )
                     .unwrap(),
-                )
-                .decompress()
-                .unwrap(),
+                ),
                 S: PublicKey::from_slice(
                     &hex::decode(
                         "51d1d9f2ba89de8cb5608c98c795cb6079a0b4aafb60ce5c444159d8edb8db6c",
                     )
                     .unwrap(),
-                )
-                .decompress()
-                .unwrap(),
+                ),
                 T_1: PublicKey::from_slice(
                     &hex::decode(
                         "d6939befc6a1d735fa4a13e0c4f69bc1e72bdacab6f60c260fa763c6f412f474",
                     )
                     .unwrap(),
-                )
-                .decompress()
-                .unwrap(),
+                ),
                 T_2: PublicKey::from_slice(
                     &hex::decode(
                         "21331553a5d2a385aeeec00d7f252b86bd6a676f63e21a16d4173f0f0ac795e3",
                     )
                     .unwrap(),
-                )
-                .decompress()
-                .unwrap(),
+                ),
                 tau_x: SecretKey::from_slice(
                     &hex::decode(
                         "057d34ae685f3b753eba9be6bb3fb88fe2335aed10bbf027beac6d071593f600",
@@ -1098,7 +1076,7 @@ mod test {
                 ]
                 .iter()
                 .map(|x| hex::decode(x).unwrap())
-                .map(|x| PublicKey::from_slice(&x).decompress().unwrap())
+                .map(|x| PublicKey::from_slice(&x))
                 .collect(),
                 R: [
                     "dfc25c10bd846911a1ce4bbe5a7bb877757937a30781605117aebb4890f22936",
@@ -1111,7 +1089,7 @@ mod test {
                 ]
                 .iter()
                 .map(|x| hex::decode(x).unwrap())
-                .map(|x| PublicKey::from_slice(&x).decompress().unwrap())
+                .map(|x| PublicKey::from_slice(&x))
                 .collect(),
                 a: SecretKey::from_slice(
                     &hex::decode(

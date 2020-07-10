@@ -4,7 +4,7 @@ use base58_monero::base58::Error as Base58Error;
 use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use crypto::{Hash8, PublicKey};
+use crypto::{ecc::PointExt, Hash8, PublicKey};
 
 /// Prefixes used to identify an address from its string representation
 pub trait AddressPrefixes {
@@ -144,10 +144,10 @@ impl Address {
         address.extend_from_slice(&varint::serialize(tag));
 
         // Spend public key
-        address.extend_from_slice(&self.spend_public_key.to_bytes());
+        address.extend_from_slice(&self.spend_public_key.compress().to_bytes());
 
         // View public key
-        address.extend_from_slice(&self.view_public_key.to_bytes());
+        address.extend_from_slice(&self.view_public_key.compress().to_bytes());
 
         // Base58
         base58_monero::encode_check(&address).unwrap()
@@ -190,13 +190,13 @@ mod tests {
 
         // Spend public key
         assert_eq!(
-            hex::encode(address.spend_public_key.as_bytes()),
+            hex::encode(address.spend_public_key.compress().as_bytes()),
             "1ed50fe76f3fcd23c16493f8802b04f1c77eace5a54f969cc03dfa5cd3149457"
         );
 
         // View public key
         assert_eq!(
-            hex::encode(address.view_public_key.as_bytes()),
+            hex::encode(address.view_public_key.compress().as_bytes()),
             "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0"
         );
     }
@@ -211,13 +211,13 @@ mod tests {
 
         // Spend public key
         assert_eq!(
-            hex::encode(address.spend_public_key.as_bytes()),
+            hex::encode(address.spend_public_key.compress().as_bytes()),
             "b4c9093fd8e8013eb396e5c0b13cc7819b968c9fb2ae39333c2f078d979d304c"
         );
 
         // View public key
         assert_eq!(
-            hex::encode(address.view_public_key.as_bytes()),
+            hex::encode(address.view_public_key.compress().as_bytes()),
             "be9156eed385d61060ea2d022a779c4b28ecc68ed440517a2a8a0c7b782daa66"
         );
     }

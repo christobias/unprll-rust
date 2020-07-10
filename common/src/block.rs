@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use serde::{Deserialize, Serialize};
 
 use crate::{GetHash, TXExtra, TXIn, TXOut, TXOutTarget, Transaction, TransactionPrefix};
-use crypto::{Hash256, PublicKey};
+use crypto::{ecc::PointExt, Hash256, PublicKey};
 
 /// Block Header
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
@@ -106,7 +106,7 @@ impl Block {
         blob.extend_from_slice(self.header.prev_id.data());
 
         // Custom serialization for miner specific
-        blob.extend_from_slice(self.header.miner_specific.as_bytes());
+        blob.extend_from_slice(self.header.miner_specific.compress().as_bytes());
 
         // Transaction root hash
         if !self.tx_hashes.is_empty() {
@@ -138,7 +138,7 @@ impl GetHash for Block {
         vec.extend_from_slice(self.header.prev_id.data());
 
         // Miner specific
-        vec.extend_from_slice(&self.header.miner_specific.to_bytes());
+        vec.extend_from_slice(&self.header.miner_specific.compress().to_bytes());
 
         // Proof of Work
         vec.extend_from_slice(&varint::serialize(self.header.iterations as u64));

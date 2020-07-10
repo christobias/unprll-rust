@@ -23,15 +23,10 @@ pub fn get_address_for_index(account_keys: &AccountKeys, index: &SubAddressIndex
     let subaddress_public_key = &subaddress_secret_key * &crypto::ecc::BASEPOINT_TABLE;
 
     // Subaddress spend public key
-    let spend_public_key =
-        account_keys.spend_keypair.public_key.decompress().unwrap() + subaddress_public_key;
+    let spend_public_key = account_keys.spend_keypair.public_key + subaddress_public_key;
 
     // Subaddress view public key
     let view_public_key = account_keys.view_keypair.secret_key * spend_public_key;
-
-    // Compress public keys
-    let spend_public_key = spend_public_key.compress();
-    let view_public_key = view_public_key.compress();
 
     Address::subaddress(spend_public_key, view_public_key)
 }

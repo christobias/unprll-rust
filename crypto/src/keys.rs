@@ -1,4 +1,4 @@
-use crate::ecc::{CompressedPoint, Scalar, BASEPOINT_TABLE};
+use crate::ecc::{Point, Scalar, BASEPOINT_TABLE};
 use serde::{Deserialize, Serialize};
 
 /// An unsigned 256-bit value used as a private key. Represented with lowercase letters
@@ -6,7 +6,7 @@ pub type SecretKey = Scalar;
 
 /// A point on the elliptic curve. Usually determined by multiplication of a scalar to the curve
 /// basepoint
-pub type PublicKey = CompressedPoint;
+pub type PublicKey = Point;
 
 /// Type alias specific to Cryptonote
 pub type KeyImage = PublicKey;
@@ -31,7 +31,7 @@ impl KeyPair {
 
 impl From<Scalar> for KeyPair {
     fn from(secret_key: SecretKey) -> Self {
-        let public_key = (&secret_key * &BASEPOINT_TABLE).compress();
+        let public_key = &secret_key * &BASEPOINT_TABLE;
         Self {
             secret_key,
             public_key,
@@ -52,7 +52,7 @@ mod tests {
                 .unwrap(),
         ));
         assert_eq!(
-            hex::encode(kp.public_key.to_bytes()),
+            hex::encode(kp.public_key.compress().to_bytes()),
             "36440552e76c9029d22edb4db283b0d9daf2ed21001728248eb4300eaba7f4e0"
         );
     }

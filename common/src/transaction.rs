@@ -125,7 +125,7 @@ impl GetHash for TransactionPrefix {
                     vec.extend_from_slice(&varint::serialize(0x02 as u64));
 
                     // Public Key
-                    vec.extend_from_slice(key.as_bytes());
+                    vec.extend_from_slice(key.compress().as_bytes());
                 }
             }
         }
@@ -139,13 +139,15 @@ impl GetHash for TransactionPrefix {
                     extra_buf.extend_from_slice(&varint::serialize(0x01 as u64));
 
                     // Public Key
-                    extra_buf.extend_from_slice(key.as_bytes());
+                    extra_buf.extend_from_slice(key.compress().as_bytes());
                 }
                 TXExtra::TxAdditionalPublicKeys(keys) => {
                     // Enum tag
                     extra_buf.extend_from_slice(&varint::serialize(0x04 as u64));
                     // Public Keys
-                    extra_buf.extend(keys.iter().flat_map(|key| key.as_bytes()));
+                    for key in keys {
+                        extra_buf.extend_from_slice(key.compress().as_bytes());
+                    }
                 }
                 TXExtra::TxNonce(nonce) => {
                     // Enum tag
