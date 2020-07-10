@@ -23,6 +23,7 @@ fn generate_key_image(
 
     // Get the output secret key. This will return None if the source output
     // doesn't belong to the account
+    // x = H_s(arG || idx) + b
     let output_secret_key = tx_scanning::get_output_secret_key(
         account_keys,
         &source.subaddress_index,
@@ -31,11 +32,11 @@ fn generate_key_image(
         &source.real_output_tx_public_keys,
     )?;
 
-    // Generate the ephemeral keypair for this output
+    // Generate the ephemeral keypair for this output (x, X = xG)
     let ephemeral_keypair = KeyPair::from(output_secret_key);
 
     // Generate the key image
-    // KI = x*H_p(X)
+    // KI = x * H_p(X)
     let key_image = ephemeral_keypair.secret_key
         * crypto::ecc::hash_to_point(CNFastHash::digest(
             ephemeral_keypair.public_key.compress().as_bytes(),
@@ -108,6 +109,7 @@ pub fn construct_tx(
         in_amount_sum += source.amount;
 
         // Generate key image
+        // x * H_p(P)
         let (key_image, ephemeral_keypair) = generate_key_image(&sender_keys, source)
             .ok_or_else(|| failure::format_err!("Failed to generate the key image"))?;
 
@@ -266,6 +268,8 @@ pub fn construct_tx(
         .unwrap();
 
         // Generate the target keypair
+        // (H_s(rA || idx), H_s(rA || idx)G + B)
+        // This is derivable by both receiver and sender
         let target_keypair =
             derivation.to_keypair(output_index as u64, destination_address.spend_public_key);
 
@@ -291,6 +295,8 @@ pub fn construct_tx(
         ));
     }
 
+    // Find the output key of the target recipient
+    // H_s(arG || idx)G + B
     let destination_public_key = find_destination_public_key(destinations).unwrap();
 
     // Keep a copy of the transaction secret keys for future use
@@ -305,6 +311,9 @@ pub fn construct_tx(
 
     let mut tx_extra = vec![
         // Encrypt the payment ID with the single output tx secret key
+        //
+        // The derivation from below is derivable by both sender and receiver
+        // since, rA = aR = arG
         // TODO: Consider multi-payment ID scenarios
         TXExtra::TxNonce(TXNonce::EncryptedPaymentId(payment_id::encrypt(
             payment_id,
