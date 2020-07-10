@@ -8,9 +8,9 @@ use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
 use coin_specific::{emission::EmissionCurve, Unprll};
 use common::{Block, TXExtra, TXIn, TXOut, TXOutTarget};
-use crypto::{CNFastHash, Digest, Hash256, KeyPair};
+use crypto::{Hash256, KeyPair};
 use rpc::api_definitions::DaemonRPC;
-use transaction_util::address::Address;
+use transaction_util::{address::Address, Derivation};
 
 use crate::config::Config;
 use crate::miner::Miner;
@@ -69,32 +69,32 @@ impl MinerStateMachine {
             .inputs
             .push(TXIn::Gen(current_height + 1));
 
-        // HACK TODO FIXME: Make proper transaction output generation code. This
-        //                  just exists to test output scanning
-        {
-            let random_scalar = KeyPair::generate().secret_key;
-            let tx_pub_key = &random_scalar * &crypto::ecc::BASEPOINT_TABLE;
+        // This code is similar to transaction_util::construct_tx but is
+        // much simpler since there are fewer cases to deal with and the
+        // RingCT signature is unnecessary
 
-            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
-                (random_scalar * self.miner_address.view_public_key.decompress().unwrap())
-                    .compress()
-                    .as_bytes(),
-            ));
-            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
-                + self.miner_address.spend_public_key.decompress().unwrap();
+        // Generate a random secret key for this output
+        let random_scalar = KeyPair::generate().secret_key;
+        // Set the transaction public key
+        let tx_pub_key = &random_scalar * &crypto::ecc::BASEPOINT_TABLE;
 
-            block.miner_tx.prefix.outputs.push(TXOut {
-                amount: Unprll.get_block_reward(block.header.major_version),
-                target: TXOutTarget::ToKey {
-                    key: tx_dest_key.compress(),
-                },
-            });
-            block
-                .miner_tx
-                .prefix
-                .extra
-                .push(TXExtra::TxPublicKey(tx_pub_key.compress()));
-        }
+        // Generate the transaction derivation and hence the keypair
+        let tx_target_keypair =
+            Derivation::from(&random_scalar, &self.miner_address.view_public_key)
+                .unwrap()
+                .to_keypair(0, self.miner_address.spend_public_key);
+
+        block.miner_tx.prefix.outputs.push(TXOut {
+            amount: Unprll.get_block_reward(block.header.major_version),
+            target: TXOutTarget::ToKey {
+                key: tx_target_keypair.public_key,
+            },
+        });
+        block
+            .miner_tx
+            .prefix
+            .extra
+            .push(TXExtra::TxPublicKey(tx_pub_key));
 
         block
     }

@@ -41,9 +41,9 @@ lazy_static! {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Commitment {
     /// The value being committed to `b`
-    value: Scalar,
+    pub value: Scalar,
     /// The blinding factor `a`
-    mask: Scalar,
+    pub mask: Scalar,
 }
 
 impl Commitment {

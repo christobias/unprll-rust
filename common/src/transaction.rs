@@ -108,7 +108,22 @@ impl GetHash for TransactionPrefix {
                     // Input
                     vec.extend_from_slice(&varint::serialize(*height as u64));
                 }
-                _ => unimplemented!(),
+                TXIn::FromKey {
+                    key_offsets,
+                    key_image,
+                } => {
+                    // Enum tag
+                    vec.push(0x02);
+
+                    // Amount (0 because we deal with post-RingCT outputs)
+                    vec.push(0x00);
+
+                    // Key offsets
+                    vec.extend_from_slice(&varint::serialize(key_offsets.len() as u64));
+
+                    // Key Image
+                    vec.extend_from_slice(key_image.compress().as_bytes());
+                }
             }
         }
 

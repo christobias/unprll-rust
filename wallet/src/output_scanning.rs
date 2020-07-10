@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use log::info;
 
 use common::{Block, GetHash, TXExtra, TXOutTarget, Transaction};
-use crypto::{CNFastHash, Digest, Hash256, SecretKey};
-use transaction_util::subaddress;
+use crypto::{Hash256, SecretKey};
+use transaction_util::tx_scanning;
 
 use crate::{SubAddressIndex, Wallet};
 
@@ -50,180 +50,80 @@ impl Wallet {
         }
     }
 
-    fn scan_transaction(&mut self, transaction: &Transaction) -> Option<SecretKey> {
-        for output in &transaction.prefix.outputs {
-            let mut tx_pub_key = None;
-            for extra in &transaction.prefix.extra {
-                match extra {
-                    TXExtra::TxPublicKey(key) => {
-                        tx_pub_key = Some(key.decompress().unwrap());
-                    }
-                    TXExtra::TxAdditionalPublicKeys(keys) => {
-                        // TODO: Handle additional keys
-                    }
-                    TXExtra::TxNonce(nonce) => {
-                        // TODO: Handle payment IDs
-                    }
+    fn scan_transaction(&mut self, transaction: &Transaction) -> Option<Vec<SecretKey>> {
+        // Grab the transaction public keys
+        let mut tx_pub_keys = Vec::new();
+        for extra in &transaction.prefix.extra {
+            match extra {
+                TXExtra::TxPublicKey(key) => {
+                    tx_pub_keys.push(*key);
+                }
+                TXExtra::TxAdditionalPublicKeys(keys) => {
+                    tx_pub_keys.extend_from_slice(keys);
+                }
+                TXExtra::TxNonce(nonce) => {
+                    // TODO: Handle payment IDs
                 }
             }
-
-            if let Some(tx_pub_key) = tx_pub_key {
-                match output.target {
-                    TXOutTarget::ToKey { key } => {
-                        // Compute the common "tx scalar"
-                        // H_s(aR)
-                        let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
-                            (self.account_keys.view_keypair.secret_key * tx_pub_key)
-                                .compress()
-                                .as_bytes(),
-                        ));
-
-                        // Do the original Cryptonote derivation first
-                        // H_s(aR)G + B
-                        let computed_pub_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
-                            + self
-                                .account_keys
-                                .spend_keypair
-                                .public_key
-                                .decompress()
-                                .unwrap();
-
-                        // Check if the output is to our standard address
-                        let index_address_pair = if tx_pub_key == computed_pub_key {
-                            // It's to our standard address
-                            Some((
-                                SubAddressIndex(0, 0),
-                                self.accounts.get(&0).unwrap().addresses().get(&0).unwrap(),
-                            ))
-                        } else {
-                            // Try the subaddress derivation next
-                            // P - H_s(aR)G
-                            let computed_pub_key = key.decompress().unwrap()
-                                - &tx_scalar * &crypto::ecc::BASEPOINT_TABLE;
-                            let computed_pub_key = computed_pub_key.compress();
-
-                            // Find the corresponding public spend key
-                            self.accounts
-                                .iter()
-                                .flat_map(|(major, account)| {
-                                    account.addresses().iter().map(move |(minor, address)| {
-                                        (SubAddressIndex(*major, *minor), address)
-                                    })
-                                })
-                                .find(|(_, address)| address.spend_public_key == computed_pub_key)
-                        };
-
-                        if let Some((index, _address)) = index_address_pair {
-                            info!("Output found in txid <{}>", transaction.get_hash());
-                            let output_secret_key = if index == SubAddressIndex(0, 0) {
-                                // Main address derives things differently
-                                // H_s(aR) + b
-                                tx_scalar + self.account_keys.spend_keypair.secret_key
-                            } else {
-                                // H_s(aR) + b + m_i
-                                tx_scalar
-                                    + self.account_keys.spend_keypair.secret_key
-                                    + subaddress::get_subaddress_secret_key(
-                                        &self.account_keys,
-                                        &index,
-                                    )
-                            };
-
-                            self.accounts
-                                .get_mut(&index.0)
-                                .unwrap()
-                                .increment_balance(output.amount);
-
-                            return Some(output_secret_key);
-                        }
-                    }
-                }
-            };
         }
 
-        None
-    }
-}
+        // Keep a copy of each active subaddress
+        // TODO: This is inefficient
+        let subaddresses = self
+            .accounts
+            .iter()
+            .flat_map(|(major, account)| {
+                account
+                    .addresses()
+                    .iter()
+                    .map(move |(minor, _)| SubAddressIndex(*major, *minor))
+            })
+            .collect::<Vec<_>>();
 
-#[cfg(test)]
-mod tests {
-    use common::{TXOut, TransactionPrefix};
-    use crypto::KeyPair;
+        let output_secret_keys = transaction
+            .prefix
+            .outputs
+            .iter()
+            .enumerate()
+            // Filter for outputs that are towards our wallet
+            .filter_map(|(output_index, output)| {
+                let TXOutTarget::ToKey {
+                    key: output_public_key,
+                } = output.target;
 
-    use transaction_util::address::AddressType;
+                for sub_index in &subaddresses {
+                    if let Some(output_secret_key) = tx_scanning::get_output_secret_key(
+                        &self.account_keys,
+                        sub_index,
+                        output_index as u64,
+                        output_public_key,
+                        &tx_pub_keys,
+                    ) {
+                        // We've got money!
+                        info!(
+                            "Output found in txid <{}>. Output public key <{}>",
+                            transaction.get_hash(),
+                            hex::encode(output_public_key.compress().as_bytes())
+                        );
 
-    use super::*;
+                        // Add the output's amount to the corresponding account
+                        self.accounts
+                            .get_mut(&sub_index.0)
+                            .unwrap()
+                            .increment_balance(output.amount);
 
-    #[test]
-    fn it_receives_outputs_correctly() {
-        // A test wallet
-        let mut wallet: Wallet = Wallet::from_spend_secret_key(KeyPair::generate().secret_key);
+                        return Some(output_secret_key);
+                    }
+                }
 
-        // TODO: Replace with actual transaction sending code
-        [
-            // The standard address recognizes inputs differently
-            (0, 0),
-            // Some subaddresses
-            (1, 0),
-            (1, 1),
-            (100, 100),
-            (32767, 256),
-        ]
-        .iter()
-        // Convert to SubAddressIndex
-        .map(|(major, minor)| SubAddressIndex(*major, *minor))
-        .for_each(|index| {
-            // Add the subaddress and get its public keys
-            wallet.add_account(index.0);
-            wallet.add_address(index.clone()).unwrap();
-            let address = subaddress::get_address_for_index(&wallet.account_keys, &index);
+                None
+            })
+            .collect::<Vec<_>>();
 
-            // r
-            let random_scalar = KeyPair::generate().secret_key;
-
-            let tx_pub_key = if let AddressType::Standard = address.address_type {
-                // rG
-                &random_scalar * &crypto::ecc::BASEPOINT_TABLE
-            } else {
-                // rD
-                random_scalar * address.spend_public_key.decompress().unwrap()
-            };
-
-            // H_s(rC)
-            let tx_scalar = crypto::ecc::hash_to_scalar(CNFastHash::digest(
-                (random_scalar * address.view_public_key.decompress().unwrap())
-                    .compress()
-                    .as_bytes(),
-            ));
-
-            // H_s(rC)*G + D
-            let tx_dest_key = &tx_scalar * &crypto::ecc::BASEPOINT_TABLE
-                + address.spend_public_key.decompress().unwrap();
-
-            let t = Transaction {
-                prefix: TransactionPrefix {
-                    version: 1,
-                    unlock_delta: 0,
-                    inputs: Vec::default(),
-                    outputs: vec![TXOut {
-                        amount: 0,
-                        target: TXOutTarget::ToKey {
-                            key: tx_dest_key.compress(),
-                        },
-                    }],
-                    extra: vec![TXExtra::TxPublicKey(tx_pub_key.compress())],
-                },
-                rct_signatures: Vec::new(),
-            };
-
-            // Scan the transaction
-            let tx_scan_result = wallet.scan_transaction(&t);
-
-            // The tx output must be detected
-            assert!(tx_scan_result.is_some());
-
-            // The tx secret key must correspond to the tx destination key
-            assert!(&tx_scan_result.unwrap() * &crypto::ecc::BASEPOINT_TABLE == tx_dest_key);
-        });
+        if output_secret_keys.is_empty() {
+            None
+        } else {
+            Some(output_secret_keys)
+        }
     }
 }
