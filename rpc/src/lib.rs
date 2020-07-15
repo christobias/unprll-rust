@@ -23,7 +23,7 @@ use rpc_server::DaemonRPCServer;
 pub fn init<TCoin: 'static + EmissionCurve + Send + Sync>(
     config: &Config,
     core: Arc<RwLock<CryptonoteCore<TCoin>>>,
-) -> Result<impl Future, failure::Error> {
+) -> Result<impl Future, anyhow::Error> {
     let addr = format!("127.0.0.1:{}", config.rpc_bind_port).parse()?;
 
     Ok(async move {

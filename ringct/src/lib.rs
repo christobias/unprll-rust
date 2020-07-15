@@ -4,8 +4,6 @@
 //! This implementation is based on the whitepaper
 
 #[macro_use]
-extern crate failure;
-#[macro_use]
 extern crate itertools;
 #[macro_use]
 extern crate lazy_static;
@@ -147,6 +145,6 @@ pub mod mlsag;
 mod ringct;
 
 pub use crate::ringct::{
-    sign, verify_multiple, DestinationCommitmentPair, RingCTBase, RingCTInput, RingCTOutput,
+    sign, verify_multiple, DestinationCommitmentPair, Error, RingCTBase, RingCTInput, RingCTOutput,
     RingCTSignature, RingCTType,
 };

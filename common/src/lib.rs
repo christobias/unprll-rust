@@ -1,9 +1,6 @@
 #![deny(missing_docs)]
 //! Common definitions and traits across crates
 
-#[macro_use]
-extern crate failure;
-
 mod block;
 mod traits;
 

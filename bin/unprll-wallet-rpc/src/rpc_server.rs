@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::Context;
 use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crypto::KeyPair;
@@ -107,7 +108,7 @@ where
                             .write()
                             .unwrap()
                             .get_wallet(&wallet_name)
-                            .ok_or_else(|| failure::format_err!("Wallet not found"))?;
+                            .with_context(|| "Wallet not found")?;
                         let wallet = wallet.read().unwrap();
 
                         for index in minor_indices {
@@ -119,7 +120,7 @@ where
                                 address.to_address_string::<coin_specific::Unprll>(),
                             );
                         }
-                        Ok::<_, failure::Error>(response)
+                        Ok::<_, anyhow::Error>(response)
                     };
 
                     match response.await {
@@ -141,23 +142,18 @@ where
                             .write()
                             .unwrap()
                             .get_wallet(&wallet_name)
-                            .ok_or_else(|| failure::format_err!("Wallet not found"))?;
+                            .with_context(|| "Wallet not found")?;
                         let wallet = wallet.read().unwrap();
                         for major_index in account_indices {
                             response.balances.insert(
                                 major_index,
                                 wallet
                                     .get_account(major_index)
-                                    .ok_or_else(|| {
-                                        failure::format_err!(
-                                            "Account at index {} does not exist",
-                                            major_index
-                                        )
-                                    })?
+                                    .with_context(|| "Wallet not found")?
                                     .balance(),
                             );
                         }
-                        Ok::<_, failure::Error>(response)
+                        Ok::<_, anyhow::Error>(response)
                     };
 
                     match response.await {

@@ -46,21 +46,15 @@ pub struct Address {
 }
 
 /// Error type for Address operations
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// Returned when the address cannot be decoded correctly
-    #[fail(display = "Invalid address encoding")]
-    InvalidEncoding(#[fail(cause)] Base58Error),
+    #[error("Invalid address encoding")]
+    InvalidEncoding(#[from] #[source] Base58Error),
 
     /// Returned when the address prefix is invalid
-    #[fail(display = "Invalid address prefix")]
+    #[error("Invalid address prefix")]
     InvalidPrefix,
-}
-
-impl From<Base58Error> for Error {
-    fn from(error: Base58Error) -> Self {
-        Self::InvalidEncoding(error)
-    }
 }
 
 impl Address {

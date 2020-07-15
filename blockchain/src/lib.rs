@@ -3,9 +3,6 @@
 //! # Blockchain management
 //! This crate handles the blockchain
 
-#[macro_use]
-extern crate failure;
-
 use std::{
     collections::VecDeque,
     pin::Pin,

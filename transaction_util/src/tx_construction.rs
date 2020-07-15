@@ -1,16 +1,54 @@
 //! Module for constructing Cryptonote transactions
 
+use rand::{seq::SliceRandom, RngCore};
+
 use common::{GetHash, TXExtra, TXIn, TXNonce, TXOut, TXOutTarget, Transaction, TransactionPrefix};
 use crypto::{ecc::Scalar, CNFastHash, Digest, Hash8, Hash8Data, KeyImage, KeyPair, PublicKey};
-use rand::{seq::SliceRandom, RngCore};
-use ringct::{RingCTInput, RingCTOutput};
+use ensure_macro::ensure;
+use ringct::{Error as RingCTError, RingCTInput, RingCTOutput};
 
 use crate::{
     account_keys::AccountKeys, address::AddressType, derivation::Derivation, payment_id,
     subaddress, tx_scanning, TXDestination, TXDestinationType, TXSource,
 };
 
-type Result<T> = std::result::Result<T, failure::Error>;
+/// Error type for transaction construction
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    /// Returned when there are no transaction sources
+    #[error("No transaction sources")]
+    NoSources,
+
+    /// Returned when there are no transaction destinations
+    #[error("No transaction destinations")]
+    NoDestinations,
+
+    /// Returned when the index of the real output is beyond the mixin set provided
+    #[error("Real output index is beyond output mixin set")]
+    RealIndexOutOfBounds,
+
+    /// Returned when the key image could not be generated
+    #[error("Key image could not be generated for given output")]
+    KeyImageGeneration,
+
+    /// Returned when the transaction has more than one payment ID
+    #[error("Transaction has more than one payment ID")]
+    MultiplePaymentIDs,
+
+    /// Returned when the sum of output amounts is greater than the sum of input amounts
+    #[error("Transaction spends more than it contains as input")]
+    ExcessSpending,
+
+    /// Returned when the payment ID could not be encrypted
+    #[error("Payment ID could not be encrypted")]
+    PaymentIDEncryption,
+
+    /// Returned when there is an error when creating the RingCT signature
+    #[error(transparent)]
+    RingCT(#[from] RingCTError)
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 /// Generates a key image for the given input to the transaction
 ///
@@ -85,25 +123,20 @@ pub fn construct_tx(
     // Perform sanity checks
 
     // Ensure we have inputs
-    if sources.is_empty() {
-        return Err(failure::format_err!("No transaction sources provided"));
-    }
+    ensure!(!sources.is_empty(), Error::NoSources);
 
     // Ensure we have outputs
-    if destinations.is_empty() {
-        return Err(failure::format_err!("No transaction destinations provided"));
-    }
+    ensure!(!destinations.is_empty(), Error::NoDestinations);
 
     // Handle the inputs
     let mut in_amount_sum = 0;
     let mut tx_inputs = Vec::new();
     for source in sources {
         // Check if all real inputs are within range
-        if source.real_output_index >= source.outputs.len() as u64 {
-            return Err(failure::format_err!(
-                "Real output index is beyond outputs given"
-            ));
-        }
+        ensure!(
+            (source.real_output_index as usize) < source.outputs.len(),
+            Error::RealIndexOutOfBounds
+        );
 
         // Add the current amount
         in_amount_sum += source.amount;
@@ -111,7 +144,7 @@ pub fn construct_tx(
         // Generate key image
         // x * H_p(P)
         let (key_image, ephemeral_keypair) = generate_key_image(&sender_keys, source)
-            .ok_or_else(|| failure::format_err!("Failed to generate the key image"))?;
+            .ok_or_else(|| Error::KeyImageGeneration)?;
 
         // Convert absolute offsets to relative
         let key_offsets = source.outputs.iter().fold(Vec::new(), |mut acc, (pos, _)| {
@@ -164,13 +197,9 @@ pub fn construct_tx(
                 AddressType::SubAddress => num_subaddr += 1,
                 AddressType::Integrated(current_payment_id) => {
                     // Check if we've got a payment ID already
-                    if payment_id.is_some() {
-                        return Err(failure::format_err!(
-                            "Transactions cannot have more than one payment ID"
-                        ));
-                    } else {
-                        payment_id = Some(current_payment_id.clone());
-                    }
+                    ensure!(payment_id.is_none(), Error::MultiplePaymentIDs);
+
+                    payment_id = Some(current_payment_id.clone());
                     // Integrated addresses are standard addresses
                     num_standard += 1;
                 }
@@ -289,11 +318,7 @@ pub fn construct_tx(
     }
 
     // Check if the transaction is spending more than its inputs
-    if out_amount_sum > in_amount_sum {
-        return Err(failure::format_err!(
-            "Transaction spends more than it contains as input"
-        ));
-    }
+    ensure!(out_amount_sum <= in_amount_sum, Error::ExcessSpending);
 
     // Find the output key of the target recipient
     // H_s(arG || idx)G + B
@@ -318,7 +343,7 @@ pub fn construct_tx(
         TXExtra::TxNonce(TXNonce::EncryptedPaymentId(payment_id::encrypt(
             payment_id,
             Derivation::from(&tx_keypair.secret_key, &destination_public_key)
-                .ok_or_else(|| failure::format_err!("Failed on encrypting payment ID"))?,
+                .ok_or_else(|| Error::PaymentIDEncryption)?,
         ))),
         // Store the transaction public key
         TXExtra::TxPublicKey(tx_keypair.public_key),
@@ -382,7 +407,7 @@ pub fn construct_tx(
     Ok((
         Transaction {
             prefix: tx_prefix,
-            rct_signatures: vec![ringct_signature],
+            rct_signature: Some(ringct_signature),
         },
         transaction_secret_keys,
     ))
@@ -494,11 +519,12 @@ pub mod tests {
 
         let (tx, _) = construct_tx(&sender_keys, &mut sources, &mut destinations, 4).unwrap();
 
+        let rct_signature = tx.rct_signature.unwrap();
         // Check for the right fee
-        assert_eq!(tx.rct_signatures[0].base.fee, 1);
+        assert_eq!(rct_signature.base.fee, 1);
 
         // Ensure the RingCT signature is correct
-        ringct::verify_multiple(&tx.rct_signatures).unwrap();
+        ringct::verify_multiple(&[rct_signature]).unwrap();
 
         // Check if both outputs from the created transaction do indeed reach the sender
         for (output_index, output) in tx.prefix.outputs.iter().enumerate() {

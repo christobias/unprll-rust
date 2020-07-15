@@ -4,9 +4,6 @@
 //!
 //! Used to handle Cryptonote wallets
 
-#[macro_use]
-extern crate failure;
-
 use std::collections::HashMap;
 use std::convert::From;
 

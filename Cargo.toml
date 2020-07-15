@@ -10,6 +10,7 @@ members = [
   "common",
   "core",
   "crypto",
+  "ensure_macro",
   "p2p",
   "ringct",
   "rpc",

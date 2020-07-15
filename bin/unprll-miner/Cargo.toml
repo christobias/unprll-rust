@@ -7,12 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 bin_common = { path = "../common" }
 bincode = "1.1"
 coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 crypto = { path = "../../crypto" }
-failure = "0.1"
 futures = "0.3"
 hex = "0.3"
 jsonrpsee = { version = "0.1" }

@@ -11,10 +11,11 @@ base58-monero = "0.1"
 byteorder = "1.3"
 crypto = { path = "../crypto" }
 common = { path = "../common" }
-failure = "0.1"
+ensure_macro = { path = "../ensure_macro" }
 rand = "0.7"
 ringct = { path = "../ringct" }
 serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
 varint = { path = "../varint" }
 
 [dev-dependencies]

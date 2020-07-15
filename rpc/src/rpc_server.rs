@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::Context;
 use jsonrpsee::{common::Error, raw::RawServer, transport::TransportServer};
 
 use crate::api_definitions::*;
@@ -38,12 +39,12 @@ where
                         let core = self.core.read().unwrap();
                         let blockchain = core.blockchain();
 
-                        Ok::<_, failure::Error>(GetStatsResponse {
+                        Ok::<_, anyhow::Error>(GetStatsResponse {
                             difficulty: 1,
                             tail: blockchain
                                 .get_tail()
                                 .map(|x| (x.0, x.1.get_hash().to_string()))
-                                .ok_or_else(|| failure::format_err!("No blocks in chain"))?,
+                                .with_context(|| "No blocks in chain")?,
                             target_height: 9999,
                             tx_pool_count: 0,
                         })
@@ -63,7 +64,7 @@ where
 
                         blockchain.add_new_block(block)?;
 
-                        Ok::<_, failure::Error>(())
+                        Ok::<_, anyhow::Error>(())
                     };
                     match response.await {
                         Ok(()) => respond.ok("").await,
@@ -102,7 +103,7 @@ where
                             })
                             .collect();
 
-                        Ok::<_, failure::Error>(GetBlocksResponse {
+                        Ok::<_, anyhow::Error>(GetBlocksResponse {
                             blocks: blocks
                                 .into_iter()
                                 .flat_map(|block| bincode::serialize(&block))

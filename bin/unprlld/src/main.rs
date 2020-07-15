@@ -22,7 +22,7 @@ async fn main() {
     }
 }
 
-async fn run(config: Config) -> Result<(), failure::Error> {
+async fn run(config: Config) -> Result<(), anyhow::Error> {
     log::info!(
         "{}",
         format!(

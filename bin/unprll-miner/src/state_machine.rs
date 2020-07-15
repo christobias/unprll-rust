@@ -25,7 +25,7 @@ pub struct MinerStateMachine {
 }
 
 impl MinerStateMachine {
-    pub fn new(config: Config) -> Result<Self, failure::Error> {
+    pub fn new(config: Config) -> Result<Self, anyhow::Error> {
         Ok(MinerStateMachine {
             check_interval: Duration::from_secs(config.check_interval),
             daemon_address: config.daemon_address,
@@ -99,7 +99,7 @@ impl MinerStateMachine {
         block
     }
 
-    pub fn into_future(mut self) -> impl Future<Output = Result<(), failure::Error>> {
+    pub fn into_future(mut self) -> impl Future<Output = Result<(), anyhow::Error>> {
         async move {
             loop {
                 // Check if we need to check the daemon for a new chain tail

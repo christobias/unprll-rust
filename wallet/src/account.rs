@@ -6,14 +6,6 @@ use transaction_util::subaddress::{self, SubAddressIndex};
 
 use crate::{Address, Wallet};
 
-/// Error type for Address operations
-#[derive(Fail, Debug)]
-pub enum Error {
-    /// Returned when the account does not exist at the given index
-    #[fail(display = "Account does not exist")]
-    DoesNotExist,
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Account {
     addresses: HashMap<u32, Address>,
@@ -70,12 +62,12 @@ impl Wallet {
     }
 
     /// Add an address to the given account
-    pub fn add_address(&mut self, index: SubAddressIndex) -> Result<(), Error> {
+    pub fn add_address(&mut self, index: SubAddressIndex) -> Option<()> {
         let address = subaddress::get_address_for_index(&self.account_keys, &index);
 
-        let account = self.accounts.get_mut(&index.0).ok_or(Error::DoesNotExist)?;
+        let account = self.accounts.get_mut(&index.0)?;
 
         account.addresses.insert(index.1, address);
-        Ok(())
+        Some(())
     }
 }

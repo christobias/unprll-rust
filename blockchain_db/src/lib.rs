@@ -12,9 +12,6 @@
 //! The semantics of a valid block or transaction in a given chain is handled by
 //! the `Blockchain` struct for a given network
 
-#[macro_use]
-extern crate failure;
-
 use common::{Block, GetHash, PreliminaryChecks, TXIn, Transaction};
 use crypto::{Hash256, KeyImage};
 

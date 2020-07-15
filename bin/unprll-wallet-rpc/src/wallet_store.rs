@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::sync::{Arc, RwLock};
 
-use failure::Error;
+use anyhow::Error;
 use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
 
 use common::{GetHash, Transaction};
+use ensure_macro::ensure;
 use rpc::api_definitions::DaemonRPC;
 use wallet::Wallet;
 
@@ -42,12 +43,10 @@ impl WalletStore {
     }
 
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet) -> Result<(), Error> {
-        if self.wallets.contains_key(&wallet_name) {
-            return Err(failure::format_err!(
-                "Wallet {} exists in memory",
-                wallet_name
-            ));
-        }
+        ensure!(!self.wallets.contains_key(&wallet_name), anyhow::format_err!(
+            "Wallet {} exists in memory",
+            wallet_name
+        ));
         self.wallets
             .insert(wallet_name, Arc::from(RwLock::new(wallet)));
         Ok(())
@@ -81,7 +80,7 @@ impl WalletStore {
         Ok(())
     }
 
-    pub async fn refresh_wallets(&mut self) -> Result<(), failure::Error> {
+    pub async fn refresh_wallets(&mut self) -> Result<(), anyhow::Error> {
         for (wallet_name, wallet) in &self.wallets {
             log::debug!("Refreshing {}", wallet_name);
 

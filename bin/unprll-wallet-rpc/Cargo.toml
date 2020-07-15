@@ -5,12 +5,13 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
 bincode = "1.1"
 bin_common = { path = "../common" }
 coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 crypto = { path = "../../crypto" }
-failure = "0.1"
+ensure_macro = { path = "../../ensure_macro" }
 futures = "0.3"
 hex = "0.3"
 hyper = "0.13"

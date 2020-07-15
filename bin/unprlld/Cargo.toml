@@ -5,11 +5,11 @@ authors = ["Christopher Tobias <ctobias@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
 bin_common = { path = "../common" }
 coin_specific = { path = "../../coin_specific" }
 common = { path = "../../common" }
 cryptonote_core = { path = "../../core" }
-failure = "0.1"
 futures = "0.3"
 log = "0.4"
 p2p = { path = "../../p2p" }

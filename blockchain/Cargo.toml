@@ -9,9 +9,10 @@ bincode = "1.1"
 blockchain_db = { path = "../blockchain_db" }
 common = { path = "../common" }
 crypto = { path = "../crypto" }
-failure = "0.1"
+ensure_macro = { path = "../ensure_macro" }
 futures = "0.3"
 hex = "0.3"
 log = "0.4"
+ringct = { path = "../ringct" }
 structopt = "0.2"
-txpool = { path = "../txpool" }
+thiserror = "1.0"

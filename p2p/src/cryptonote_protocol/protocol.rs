@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use anyhow::Context;
 use libp2p::{
     core::upgrade::{self, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     futures::io::{AsyncRead, AsyncWrite},
@@ -84,14 +85,14 @@ where
     TSocket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Output = CryptonoteP2PMessage;
-    type Error = failure::Error;
+    type Error = anyhow::Error;
     type Future = UpgradeFuture<Self::Output, Self::Error>;
 
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, 1_048_576).await?;
             bincode::deserialize(&packet)
-                .map_err(|err| failure::format_err!("Error deserializing incoming packet: {}", err))
+                .with_context(|| "Error deserializing incoming packet")
         })
     }
 }

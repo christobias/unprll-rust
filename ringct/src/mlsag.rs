@@ -12,24 +12,27 @@ use crypto::{
     ecc::{CompressedPoint, Scalar, BASEPOINT_TABLE},
     CNFastHash, Digest, KeyImage, SecretKey,
 };
+use ensure_macro::ensure;
 
 use crate::Matrix;
 
 /// Error type for MLSAG operations
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// Returned when the signature parameters are inconsistent
-    #[fail(display = "Input parameters are inconsistent")]
+    #[error("Input parameters are inconsistent")]
     InconsistentParameters,
 
     /// Returned when the signature is inconsistent
-    #[fail(display = "Signature is inconsistent")]
+    #[error("Signature is inconsistent")]
     InconsistentSignature,
 
     /// Returned when the signature fails to verify correctly
-    #[fail(display = "Signature is invalid")]
+    #[error("Signature is invalid")]
     InvalidSignature,
 }
+
+type Result<T> = std::result::Result<T, Error>;
 
 /// MLSAG signature
 #[allow(missing_docs)]
@@ -65,26 +68,20 @@ pub fn sign(
     index: u64,
     signer_keys: &[SecretKey],
     double_spendable_keys: u64,
-) -> Result<Signature, Error> {
+) -> Result<Signature> {
     // Assertions to ensure input sanity
     // NOTE: KeyMatrix rows contain key vectors, whose columns contain keys
     let index = index as usize;
     let double_spendable_keys = double_spendable_keys as usize;
 
     let rows = ring.rows();
-    if rows < 2 {
-        return Err(Error::InconsistentParameters);
-    }
-    if index >= rows {
-        return Err(Error::InconsistentParameters);
-    }
+    ensure!(rows >= 2, Error::InconsistentParameters);
+    ensure!(index < rows, Error::InconsistentParameters);
 
     let cols = ring.cols();
-    if signer_keys.len() != cols {
-        return Err(Error::InconsistentParameters);
-    }
+    ensure!(signer_keys.len() == cols, Error::InconsistentParameters);
 
-    // Generate key images
+        // Generate key images
     let key_images: Vec<_> = signer_keys
         .iter()
         .enumerate()
@@ -181,26 +178,16 @@ pub fn verify(
     ring: &Matrix<CompressedPoint>,
     signature: &Signature,
     double_spendable_keys: usize,
-) -> Result<(), Error> {
+) -> Result<()> {
     // Assertions for input sanity
     let rows = ring.rows();
-    if rows < 2 {
-        return Err(Error::InconsistentSignature);
-    }
+    ensure!(rows >= 2, Error::InconsistentSignature);
 
     let cols = ring.cols();
-    if cols < 1 {
-        return Err(Error::InconsistentSignature);
-    }
-    if double_spendable_keys > cols {
-        return Err(Error::InconsistentSignature);
-    }
-    if signature.s.rows() != rows || signature.s.cols() != cols {
-        return Err(Error::InconsistentSignature);
-    }
-    if signature.key_images.len() != double_spendable_keys {
-        return Err(Error::InconsistentSignature);
-    }
+    ensure!(cols >= 1, Error::InconsistentSignature);
+    ensure!(double_spendable_keys <= cols, Error::InconsistentSignature);
+    ensure!(signature.s.rows() == rows && signature.s.cols() == cols, Error::InconsistentSignature);
+    ensure!(signature.key_images.len() == double_spendable_keys, Error::InconsistentSignature);
 
     let Signature {
         key_images,
@@ -246,9 +233,7 @@ pub fn verify(
         last_c = crypto::ecc::hash_to_scalar(hasher.result_reset());
     }
 
-    if last_c != *c_0 {
-        return Err(Error::InvalidSignature);
-    }
+    ensure!(last_c == *c_0, Error::InvalidSignature);
     Ok(())
 }
 
