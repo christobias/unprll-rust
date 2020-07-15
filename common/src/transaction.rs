@@ -83,8 +83,8 @@ pub struct Transaction {
     /// This transaction's prefix
     pub prefix: TransactionPrefix,
 
-    /// RingCT Signatures to prove ownership, authorize the transaction and hide amounts
-    pub rct_signatures: Vec<RingCTSignature>,
+    /// RingCT Signature to prove ownership, authorize the transaction and hide amounts
+    pub rct_signature: Option<RingCTSignature>,
 }
 
 impl GetHash for TransactionPrefix {
