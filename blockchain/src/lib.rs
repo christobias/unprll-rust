@@ -17,15 +17,16 @@ use futures::Stream;
 use blockchain_db::{BlockchainDB, Error as BlockchainDBError};
 use common::{Block, GetHash, PreliminaryChecks, Transaction};
 use crypto::Hash256;
-use txpool::TXPool;
 
 mod config;
 mod error;
 mod traits;
+mod txpool;
 
 pub use config::Config;
 pub use error::{Error, Result};
 pub use traits::EmissionCurve;
+pub use txpool::TXPool;
 
 /// An interface to the stored blockchain
 pub struct Blockchain<TCoin>
@@ -114,7 +115,7 @@ where
         let transactions = block
             .tx_hashes
             .iter()
-            .map(|txid| self.tx_pool.remove_transaction(txid).unwrap())
+            .map(|txid| self.tx_pool.take_transaction(txid).unwrap())
             .collect::<Vec<_>>();
 
         // Add the block

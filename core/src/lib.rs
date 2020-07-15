@@ -3,7 +3,6 @@
 
 use blockchain::Blockchain;
 pub use blockchain::EmissionCurve;
-use txpool::TXPool;
 
 mod config;
 pub use config::Config;
@@ -17,7 +16,6 @@ where
     TCoin: EmissionCurve,
 {
     blockchain: Blockchain<TCoin>,
-    txpool: TXPool,
 }
 
 impl<TCoin> CryptonoteCore<TCoin>
@@ -28,8 +26,7 @@ where
     pub fn new(coin_definition: TCoin, config: &Config) -> Self {
         let blockchain = Blockchain::new(coin_definition, &config.blockchain_config)
             .expect("Failed to initialize Blockchain");
-        let txpool = TXPool::new();
-        CryptonoteCore { blockchain, txpool }
+        CryptonoteCore { blockchain }
     }
     /// Get a reference to the underlying blockchain
     pub fn blockchain(&self) -> &Blockchain<TCoin> {
@@ -38,9 +35,5 @@ where
     /// Get a mutable reference to the underlying blockchain
     pub fn blockchain_mut(&mut self) -> &mut Blockchain<TCoin> {
         &mut self.blockchain
-    }
-    /// Get a reference to the transaction mempool
-    pub fn txpool(&self) -> &TXPool {
-        &self.txpool
     }
 }

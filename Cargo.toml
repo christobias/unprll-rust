@@ -14,7 +14,6 @@ members = [
   "ringct",
   "rpc",
   "transaction_util",
-  "txpool",
   "varint",
   "wallet"
 ]
