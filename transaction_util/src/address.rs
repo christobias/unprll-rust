@@ -1,10 +1,9 @@
 //! Module for handling addresses
 
 use base58_monero::base58::Error as Base58Error;
-use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use crypto::{ecc::PointExt, Hash8, PublicKey};
+use crypto::{ecc::PointExt, Hash8, Hash8Data, PublicKey};
 
 /// Prefixes used to identify an address from its string representation
 pub trait AddressPrefixes {
@@ -115,10 +114,12 @@ impl Address {
         } else if tag == TPrefix::SUBADDRESS {
             Ok(Address::subaddress(spend_public_key, view_public_key))
         } else if tag == TPrefix::INTEGRATED {
+            let payment_id = Hash8::from(*Hash8Data::from_slice(&data[(tag_end + 64)..(tag_end + 72)]));
+
             Ok(Address::integrated(
                 spend_public_key,
                 view_public_key,
-                crypto::Hash8::null_hash(),
+                payment_id,
             ))
         } else {
             Err(Error::InvalidPrefix)
@@ -128,12 +129,16 @@ impl Address {
     /// Converts an Address to a human readable Cryptonote address
     pub fn to_address_string<TPrefix: AddressPrefixes>(&self) -> String {
         let mut address = Vec::new();
+        let mut payment_id_buffer = Vec::new();
 
         // Tag
         let tag = match &self.address_type {
             AddressType::Standard => TPrefix::STANDARD,
             AddressType::SubAddress => TPrefix::SUBADDRESS,
-            AddressType::Integrated(payment_id) => TPrefix::INTEGRATED,
+            AddressType::Integrated(payment_id) => {
+                payment_id_buffer.extend_from_slice(payment_id.data());
+                TPrefix::INTEGRATED
+            },
         };
         address.extend_from_slice(&varint::serialize(tag));
 
@@ -143,6 +148,9 @@ impl Address {
         // View public key
         address.extend_from_slice(&self.view_public_key.compress().to_bytes());
 
+        // Payment ID (if any)
+        address.extend_from_slice(&payment_id_buffer);
+
         // Base58
         base58_monero::encode_check(&address).unwrap()
     }
@@ -150,6 +158,8 @@ impl Address {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
+
     use super::*;
     use crate::test_definitions::TestCoin;
 
@@ -213,6 +223,27 @@ mod tests {
         assert_eq!(
             hex::encode(address.view_public_key.compress().as_bytes()),
             "be9156eed385d61060ea2d022a779c4b28ecc68ed440517a2a8a0c7b782daa66"
+        );
+    }
+
+    #[test]
+    fn it_decodes_integrated_string_addresses_properly() {
+        // Unprll Donation wallet subaddress
+        let address = Address::from_address_string::<TestCoin>("UNPipgKgwkw8B9q5wTdB9ojWfhXTuAysaEsQRE8PbNCPenLLA7yoJx8ThSeFmPFamgJprz7oyu4kdPaXtp8VxECLAqc5ZWc3VuGQ2amdFtmiDG").unwrap();
+
+        // Address type
+        assert_eq!(address.address_type, AddressType::Integrated(Hash8::try_from("0123456789abcdef").unwrap()));
+
+        // Spend public key
+        assert_eq!(
+            hex::encode(address.spend_public_key.compress().as_bytes()),
+            "502eba642ae591831eee6f66fe28e0730b0a0fbd52eae234115332d8e1e1a880"
+        );
+
+        // View public key
+        assert_eq!(
+            hex::encode(address.view_public_key.compress().as_bytes()),
+            "009915119f9cd3043b01add36a91e6de9b2476ae86fc662044a37e5d3ad150fa"
         );
     }
 }
