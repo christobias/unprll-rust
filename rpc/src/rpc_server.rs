@@ -34,6 +34,7 @@ where
     pub async fn run(self) {
         while let Ok(request) = DaemonRPC::next_request(&mut self.server.write().unwrap()).await {
             match request {
+                // get_stats
                 DaemonRPC::GetStats { respond } => {
                     let response = async {
                         let core = self.core.read().unwrap();
@@ -55,6 +56,7 @@ where
                     };
                 }
 
+                // submit_block
                 DaemonRPC::SubmitBlock { respond, block } => {
                     let response = async {
                         let block = bincode::deserialize(&hex::decode(block)?)?;
@@ -72,6 +74,7 @@ where
                     };
                 }
 
+                // get_blocks
                 DaemonRPC::GetBlocks {
                     respond,
                     from: start_height,

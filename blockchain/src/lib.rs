@@ -61,12 +61,21 @@ where
     }
 
     // Blocks
-    /// Get blocks from `start` to `end` (inclusive)
+    /// Get blocks from `start` (inclusive) to `end` (exclusive)
+    /// 
+    /// # Returns
+    /// A vector containing the given blocks. Each block is guaranteed to
+    /// be in serial height order
+    /// 
+    /// If `end` is beyond the current blockchain height, the range of
+    /// blocks returned will be stopped at the latest block
     pub fn get_blocks(&self, start: u64, end: u64) -> Vec<Block> {
         let mut vec = Vec::new();
-        for i in start..=end {
+        for i in start..end {
             if let Some(block) = self.blockchain_db.get_block_by_height(i) {
                 vec.push(block);
+            } else {
+                break;
             }
         }
         vec
