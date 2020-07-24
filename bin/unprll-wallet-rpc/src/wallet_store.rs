@@ -66,7 +66,7 @@ impl WalletStore {
         self.wallets.get(wallet_name).cloned()
     }
 
-    pub fn save_wallets(&self) -> Result<(), Error> {
+    pub async fn save_wallets(&self) -> Result<(), Error> {
         for (wallet_name, wallet) in &self.wallets {
             let mut wallet_path = self.wallet_dir.clone();
             wallet_path.push(wallet_name);
@@ -80,7 +80,7 @@ impl WalletStore {
         Ok(())
     }
 
-    pub async fn refresh_wallets(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn refresh_wallets(&mut self) -> Result<(), Error> {
         for (wallet_name, wallet) in &self.wallets {
             log::debug!("Refreshing {}", wallet_name);
 

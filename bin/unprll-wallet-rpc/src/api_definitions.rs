@@ -11,7 +11,7 @@ jsonrpsee::rpc_api! {
         fn create_wallet(wallet_name: String, password: String) -> String;
         fn load_wallet(wallet_name: String, password: String) -> String;
         fn refresh_wallets() -> String;
-        fn save_wallets();
+        fn save_wallets() -> String;
 
         // Account and Address management
         fn get_addresses(wallet_name: String, account_index: u32, address_indices: Option<Vec<u32>>) -> GetAddressesResponse;

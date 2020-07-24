@@ -29,9 +29,11 @@ where
             wallet_store,
         }
     }
+
     pub async fn run(self) {
         while let Ok(request) = WalletRPC::next_request(&mut self.server.write().unwrap()).await {
             match request {
+                // create_wallet
                 WalletRPC::CreateWallet {
                     respond,
                     wallet_name,
@@ -54,6 +56,7 @@ where
                     };
                 }
 
+                // load_wallet
                 WalletRPC::LoadWallet {
                     respond,
                     wallet_name,
@@ -72,6 +75,7 @@ where
                     };
                 }
 
+                // refresh_wallets
                 WalletRPC::RefreshWallets { respond } => {
                     let response =
                         async { self.wallet_store.write().unwrap().refresh_wallets().await };
@@ -82,14 +86,18 @@ where
                     };
                 }
 
-                WalletRPC::SaveWallets {} => {
-                    self.wallet_store
-                        .write()
-                        .unwrap()
-                        .save_wallets()
-                        .unwrap_or_else(|_| {});
+                // save_wallets
+                WalletRPC::SaveWallets { respond } => {
+                    let response =
+                        async { self.wallet_store.write().unwrap().save_wallets().await };
+
+                    match response.await {
+                        Ok(()) => respond.ok("").await,
+                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
+                    };
                 }
 
+                // get_addresses
                 WalletRPC::GetAddresses {
                     respond,
                     wallet_name,
@@ -129,6 +137,7 @@ where
                     };
                 }
 
+                // get_balances
                 WalletRPC::GetBalances {
                     respond,
                     wallet_name,
