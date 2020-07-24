@@ -191,8 +191,8 @@ where
         OneShotHandler::new(
             SubstreamProtocol::from(CryptonoteP2PUpgrade(CryptonoteP2PMessage::Empty)),
             OneShotHandlerConfig {
-                inactive_timeout: Duration::from_secs(600),
-                substream_timeout: Duration::from_secs(608),
+                keep_alive_timeout: Duration::from_secs(600),
+                outbound_substream_timeout: Duration::from_secs(608),
             },
         )
     }
