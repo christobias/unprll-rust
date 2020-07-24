@@ -18,3 +18,10 @@ members = [
   "varint",
   "wallet"
 ]
+
+# Enable optimizations on the crypto crate to speed up RNJC testing
+[profile.dev.package.crypto]
+opt-level = 3
+
+[profile.test.package.crypto]
+opt-level = 3
