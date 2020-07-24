@@ -49,7 +49,11 @@ pub struct Address {
 pub enum Error {
     /// Returned when the address cannot be decoded correctly
     #[error("Invalid address encoding")]
-    InvalidEncoding(#[from] #[source] Base58Error),
+    InvalidEncoding(
+        #[from]
+        #[source]
+        Base58Error,
+    ),
 
     /// Returned when the address prefix is invalid
     #[error("Invalid address prefix")]
@@ -114,7 +118,9 @@ impl Address {
         } else if tag == TPrefix::SUBADDRESS {
             Ok(Address::subaddress(spend_public_key, view_public_key))
         } else if tag == TPrefix::INTEGRATED {
-            let payment_id = Hash8::from(*Hash8Data::from_slice(&data[(tag_end + 64)..(tag_end + 72)]));
+            let payment_id = Hash8::from(*Hash8Data::from_slice(
+                &data[(tag_end + 64)..(tag_end + 72)],
+            ));
 
             Ok(Address::integrated(
                 spend_public_key,
@@ -138,7 +144,7 @@ impl Address {
             AddressType::Integrated(payment_id) => {
                 payment_id_buffer.extend_from_slice(payment_id.data());
                 TPrefix::INTEGRATED
-            },
+            }
         };
         address.extend_from_slice(&varint::serialize(tag));
 
@@ -232,7 +238,10 @@ mod tests {
         let address = Address::from_address_string::<TestCoin>("UNPipgKgwkw8B9q5wTdB9ojWfhXTuAysaEsQRE8PbNCPenLLA7yoJx8ThSeFmPFamgJprz7oyu4kdPaXtp8VxECLAqc5ZWc3VuGQ2amdFtmiDG").unwrap();
 
         // Address type
-        assert_eq!(address.address_type, AddressType::Integrated(Hash8::try_from("0123456789abcdef").unwrap()));
+        assert_eq!(
+            address.address_type,
+            AddressType::Integrated(Hash8::try_from("0123456789abcdef").unwrap())
+        );
 
         // Spend public key
         assert_eq!(

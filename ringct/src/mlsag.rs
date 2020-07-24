@@ -81,7 +81,7 @@ pub fn sign(
     let cols = ring.cols();
     ensure!(signer_keys.len() == cols, Error::InconsistentParameters);
 
-        // Generate key images
+    // Generate key images
     let key_images: Vec<_> = signer_keys
         .iter()
         .enumerate()
@@ -186,8 +186,14 @@ pub fn verify(
     let cols = ring.cols();
     ensure!(cols >= 1, Error::InconsistentSignature);
     ensure!(double_spendable_keys <= cols, Error::InconsistentSignature);
-    ensure!(signature.s.rows() == rows && signature.s.cols() == cols, Error::InconsistentSignature);
-    ensure!(signature.key_images.len() == double_spendable_keys, Error::InconsistentSignature);
+    ensure!(
+        signature.s.rows() == rows && signature.s.cols() == cols,
+        Error::InconsistentSignature
+    );
+    ensure!(
+        signature.key_images.len() == double_spendable_keys,
+        Error::InconsistentSignature
+    );
 
     let Signature {
         key_images,

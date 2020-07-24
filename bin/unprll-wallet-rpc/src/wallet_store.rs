@@ -43,10 +43,10 @@ impl WalletStore {
     }
 
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet) -> Result<(), Error> {
-        ensure!(!self.wallets.contains_key(&wallet_name), anyhow::format_err!(
-            "Wallet {} exists in memory",
-            wallet_name
-        ));
+        ensure!(
+            !self.wallets.contains_key(&wallet_name),
+            anyhow::format_err!("Wallet {} exists in memory", wallet_name)
+        );
         self.wallets
             .insert(wallet_name, Arc::from(RwLock::new(wallet)));
         Ok(())

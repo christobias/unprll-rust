@@ -91,8 +91,7 @@ where
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, 1_048_576).await?;
-            bincode::deserialize(&packet)
-                .with_context(|| "Error deserializing incoming packet")
+            bincode::deserialize(&packet).with_context(|| "Error deserializing incoming packet")
         })
     }
 }

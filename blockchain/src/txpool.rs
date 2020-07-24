@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use common::{GetHash, PreliminaryChecks, Transaction, TXIn, TXExtra, TXNonce};
+use common::{GetHash, PreliminaryChecks, TXExtra, TXIn, TXNonce, Transaction};
 use crypto::Hash256;
 use ensure_macro::ensure;
-use ringct::{Error as RingCTError};
+use ringct::Error as RingCTError;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -23,7 +23,7 @@ pub enum Error {
 }
 
 /// A memory pool of unconfirmed transactions
-/// 
+///
 /// Handles transaction verification as transactions can only
 /// be confirmed if they are in the transaction pool
 #[derive(Default)]
@@ -67,17 +67,24 @@ impl PreliminaryChecks<&[Transaction]> for TXPool {
     fn check(&self, transactions: &&[Transaction]) -> Result<()> {
         for tx in transactions.iter() {
             // All transactions must be v2 (RingCT enabled)
-            ensure!(tx.prefix.version == 2, Error::WrongTransactionVersion { expected: 2 });
+            ensure!(
+                tx.prefix.version == 2,
+                Error::WrongTransactionVersion { expected: 2 }
+            );
 
             // Find all payment IDs (should be just one)
-            let payment_ids = tx.prefix.extra.iter()
+            let payment_ids = tx
+                .prefix
+                .extra
+                .iter()
                 .filter_map(|extra| {
                     if let TXExtra::TxNonce(TXNonce::EncryptedPaymentId(payment_id)) = extra {
                         Some(payment_id)
                     } else {
                         None
                     }
-                }).collect::<Vec<_>>();
+                })
+                .collect::<Vec<_>>();
 
             // All transactions must have a single encrypted payment ID
             ensure!(payment_ids.len() == 1, Error::IncorrectPaymentIDCount);

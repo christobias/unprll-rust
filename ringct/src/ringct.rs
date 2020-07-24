@@ -364,10 +364,19 @@ pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()
         let signature = signature.borrow();
 
         // Currently we've only got Bulletproof outputs
-        ensure!(signature.base.signature_type != RingCTType::Null, Error::InvalidSignatureType);
+        ensure!(
+            signature.base.signature_type != RingCTType::Null,
+            Error::InvalidSignatureType
+        );
 
-        ensure!(signature.base.output_commitments.len() == signature.bulletproofs[0].V.len(), Error::InconsistentSignature);
-        ensure!(signature.input_commitments.len() == signature.mlsag.len(), Error::InconsistentSignature);
+        ensure!(
+            signature.base.output_commitments.len() == signature.bulletproofs[0].V.len(),
+            Error::InconsistentSignature
+        );
+        ensure!(
+            signature.input_commitments.len() == signature.mlsag.len(),
+            Error::InconsistentSignature
+        );
 
         // IDEA: Aggregate all the commitments across signatures
         //       into one sum and check?

@@ -546,13 +546,11 @@ pub fn verify_multiple(proofs: &[impl Borrow<Bulletproof>]) -> Result<()> {
         let proof = proof.borrow();
         // Sanity checks
         ensure!(
-            (
-                proof.tau_x.reduce() == proof.tau_x)
+            (proof.tau_x.reduce() == proof.tau_x)
                 && (proof.mu.reduce() == proof.mu)
                 && (proof.a.reduce() == proof.a)
                 && (proof.b.reduce() == proof.b)
-                && (proof.t.reduce() == proof.t
-            ),
+                && (proof.t.reduce() == proof.t),
             Error::ScalarsNotReduced
         );
 

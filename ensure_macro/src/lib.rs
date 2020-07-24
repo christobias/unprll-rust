@@ -2,9 +2,9 @@
 /// but made to return `std::error::Error` instead of `anyhow::Error`
 ///
 /// A macro similar to `assert!` but returns an `std::error::Error` instead of panicking
-/// 
+///
 /// This macro is equivalent to `if !$cond { return Err($err); }`.
-/// 
+///
 /// ```
 /// # use ensure_macro::ensure;
 /// # #[derive(Debug)]

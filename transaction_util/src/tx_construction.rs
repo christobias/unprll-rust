@@ -45,7 +45,7 @@ pub enum Error {
 
     /// Returned when there is an error when creating the RingCT signature
     #[error(transparent)]
-    RingCT(#[from] RingCTError)
+    RingCT(#[from] RingCTError),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -143,8 +143,8 @@ pub fn construct_tx(
 
         // Generate key image
         // x * H_p(P)
-        let (key_image, ephemeral_keypair) = generate_key_image(&sender_keys, source)
-            .ok_or_else(|| Error::KeyImageGeneration)?;
+        let (key_image, ephemeral_keypair) =
+            generate_key_image(&sender_keys, source).ok_or_else(|| Error::KeyImageGeneration)?;
 
         // Convert absolute offsets to relative
         let key_offsets = source.outputs.iter().fold(Vec::new(), |mut acc, (pos, _)| {
