@@ -308,7 +308,7 @@ pub fn construct_tx(
         // since, rA = aR = arG
         // TODO: Consider multi-payment ID scenarios
         TXExtra::TxNonce(TXNonce::EncryptedPaymentId(payment_id::encrypt(
-            payment_id,
+            &payment_id,
             Derivation::from(&tx_keypair.secret_key, &destination_public_key)
                 .ok_or_else(|| Error::PaymentIDEncryption)?,
         ))),

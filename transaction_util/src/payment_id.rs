@@ -8,7 +8,7 @@ use crate::derivation::Derivation;
 ///
 /// Encryption is done by taking a hash of a shared key derivation and
 /// bitwise XOR'ing it with the payment ID
-pub fn encrypt(payment_id: Hash8, key_derivation: Derivation) -> Hash8 {
+pub fn encrypt(payment_id: &Hash8, key_derivation: Derivation) -> Hash8 {
     let mut hasher = CNFastHash::new();
 
     hasher.input(key_derivation.0.compress().to_bytes());
@@ -24,4 +24,11 @@ pub fn encrypt(payment_id: Hash8, key_derivation: Derivation) -> Hash8 {
             .map(|(pid, hash)| pid ^ hash)
             .collect::<Hash8Data>(),
     )
+}
+
+/// Decrypts a payment ID
+/// 
+/// Decryption is the exact same operation as encryption (bitwise XOR with a shared key)
+pub fn decrypt(payment_id: &Hash8, key_derivation: Derivation) -> Hash8 {
+    encrypt(payment_id, key_derivation)
 }
