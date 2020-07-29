@@ -152,6 +152,6 @@ pub mod mlsag;
 mod ringct;
 
 pub use crate::ringct::{
-    decode, sign, verify_multiple, DestinationCommitmentPair, Error, RingCTBase, RingCTInput, RingCTOutput,
-    RingCTSignature, RingCTType,
+    decode, sign, verify_multiple, DestinationCommitmentPair, Error, RingCTBase, RingCTInput,
+    RingCTOutput, RingCTSignature, RingCTType,
 };

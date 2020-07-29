@@ -354,7 +354,11 @@ pub fn sign(
 }
 
 /// Decodes the hidden amount from a RingCT signature given the shared secret key used to encrypt the amount
-pub fn decode(signature: &RingCTSignature, index: usize, amount_secret_key: &SecretKey) -> Result<Commitment> {
+pub fn decode(
+    signature: &RingCTSignature,
+    index: usize,
+    amount_secret_key: &SecretKey,
+) -> Result<Commitment> {
     ensure!(
         signature.base.ecdh_exchange.len() == signature.base.output_commitments.len(),
         Error::InvalidParameters
@@ -371,13 +375,15 @@ pub fn decode(signature: &RingCTSignature, index: usize, amount_secret_key: &Sec
 
     let value = match signature.base.signature_type {
         RingCTType::Bulletproof => {
-            let shared_secret_2 = ecc::hash_to_scalar(CNFastHash::digest(shared_secret_1.as_bytes()));
+            let shared_secret_2 =
+                ecc::hash_to_scalar(CNFastHash::digest(shared_secret_1.as_bytes()));
 
             SecretKey::from_slice(&ecdh_tuple.amount) - shared_secret_2
-        },
+        }
         RingCTType::Bulletproof2 => {
             let amount_mask = ecdh_utils::ecdh_hash(&amount_secret_key);
-            let amount_bytes = ecdh_tuple.amount
+            let amount_bytes = ecdh_tuple
+                .amount
                 .iter()
                 .zip(amount_mask.as_bytes())
                 .map(|(a, m)| a ^ m)
@@ -390,7 +396,7 @@ pub fn decode(signature: &RingCTSignature, index: usize, amount_secret_key: &Sec
 
     let commitment = Commitment {
         value,
-        mask: ecdh_tuple.mask - shared_secret_1
+        mask: ecdh_tuple.mask - shared_secret_1,
     };
 
     ensure!(
@@ -562,10 +568,7 @@ mod test {
             // Make sure the amounts decoded are correct
             let commitment = ringct::decode(&signature, index, &dest.amount_secret_key).unwrap();
 
-            assert_eq!(
-                commitment.value,
-                SecretKey::from(dest.amount)
-            );
+            assert_eq!(commitment.value, SecretKey::from(dest.amount));
         }
     }
 

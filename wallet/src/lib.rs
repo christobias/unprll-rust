@@ -67,11 +67,19 @@ impl Wallet {
         // We could very well generate the address without needing the corresponding
         // account, but just to make sure the user's wallet is tracking this address
         // for incoming coins, return None if it isn't
-        if !self.accounts.get(&index.0)?.subaddress_indices().contains(&index.1) {
+        if !self
+            .accounts
+            .get(&index.0)?
+            .subaddress_indices()
+            .contains(&index.1)
+        {
             return None;
         }
 
-        Some(subaddress::get_address_for_index(&self.account_keys, &index))
+        Some(subaddress::get_address_for_index(
+            &self.account_keys,
+            &index,
+        ))
     }
 }
 

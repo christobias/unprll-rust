@@ -35,7 +35,7 @@ impl MinerStateMachine {
             rpc_client: RawClient::new(HttpTransportClient::new(&format!(
                 "http://{}",
                 config.daemon_address
-            )))
+            ))),
         })
     }
 

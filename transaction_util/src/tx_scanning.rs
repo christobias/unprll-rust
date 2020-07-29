@@ -74,7 +74,8 @@ fn get_output_secret_key(
         // = H_s(rA || idx)G + B - H_s(aR || idx)G
         // = (H_s(arG || idx) - H_s(arG || idx))G + B
         // = B
-        let target_public_key = output_destination - (&derivation_scalar * &crypto::ecc::BASEPOINT_TABLE);
+        let target_public_key =
+            output_destination - (&derivation_scalar * &crypto::ecc::BASEPOINT_TABLE);
 
         if target_public_key == address.spend_public_key {
             // H_s(arG || idx) + b

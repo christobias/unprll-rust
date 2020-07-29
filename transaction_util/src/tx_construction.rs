@@ -108,10 +108,13 @@ pub fn construct_tx(
         let (key_image, ephemeral_keypair) = tx_scanning::get_key_image(
             &sender_keys,
             &source.subaddress_index,
-            &source.outputs[source.real_output_index as usize].1.destination,
+            &source.outputs[source.real_output_index as usize]
+                .1
+                .destination,
             source.real_output_tx_index,
             &source.real_output_tx_public_keys,
-        ).ok_or_else(|| Error::KeyImageGeneration)?;
+        )
+        .ok_or_else(|| Error::KeyImageGeneration)?;
 
         // Convert absolute offsets to relative
         let key_offsets = source.outputs.iter().fold(Vec::new(), |mut acc, (pos, _)| {

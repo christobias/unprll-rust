@@ -45,7 +45,8 @@ where
 
                     respond.respond(
                         self.wallet_store
-                            .write().unwrap()
+                            .write()
+                            .unwrap()
                             .add_wallet(wallet_name.clone(), w)
                             .map(|_| "")
                             .map_err(|e| Error::invalid_params(e.to_string())),
@@ -60,10 +61,11 @@ where
                 } => {
                     respond.respond(
                         self.wallet_store
-                            .write().unwrap()
+                            .write()
+                            .unwrap()
                             .load_wallet(wallet_name.clone())
                             .map(|_| "")
-                            .map_err(|e| Error::invalid_params(e.to_string()))
+                            .map_err(|e| Error::invalid_params(e.to_string())),
                     );
                 }
 
@@ -71,10 +73,12 @@ where
                 WalletRPC::RefreshWallets { respond } => {
                     respond.respond(
                         self.wallet_store
-                            .write().unwrap()
-                            .refresh_wallets().await
+                            .write()
+                            .unwrap()
+                            .refresh_wallets()
+                            .await
                             .map(|_| "")
-                            .map_err(|e| Error::invalid_params(e.to_string()))
+                            .map_err(|e| Error::invalid_params(e.to_string())),
                     );
                 }
 
@@ -82,10 +86,12 @@ where
                 WalletRPC::SaveWallets { respond } => {
                     respond.respond(
                         self.wallet_store
-                            .write().unwrap()
-                            .save_wallets().await
+                            .write()
+                            .unwrap()
+                            .save_wallets()
+                            .await
                             .map(|_| "")
-                            .map_err(|e| Error::invalid_params(e.to_string()))
+                            .map_err(|e| Error::invalid_params(e.to_string())),
                     );
                 }
 
@@ -125,8 +131,9 @@ where
                     };
 
                     respond.respond(
-                        response.await
-                            .map_err(|e| Error::invalid_params(e.to_string()))
+                        response
+                            .await
+                            .map_err(|e| Error::invalid_params(e.to_string())),
                     );
                 }
 
@@ -159,8 +166,9 @@ where
                     };
 
                     respond.respond(
-                        response.await
-                            .map_err(|e| Error::invalid_params(e.to_string()))
+                        response
+                            .await
+                            .map_err(|e| Error::invalid_params(e.to_string())),
                     );
                 }
             }

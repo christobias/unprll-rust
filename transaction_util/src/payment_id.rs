@@ -27,7 +27,7 @@ pub fn encrypt(payment_id: &Hash8, key_derivation: Derivation) -> Hash8 {
 }
 
 /// Decrypts a payment ID
-/// 
+///
 /// Decryption is the exact same operation as encryption (bitwise XOR with a shared key)
 pub fn decrypt(payment_id: &Hash8, key_derivation: Derivation) -> Hash8 {
     encrypt(payment_id, key_derivation)

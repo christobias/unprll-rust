@@ -85,8 +85,7 @@ impl WalletStore {
             let wallet = wallet.clone();
 
             let response =
-                DaemonRPC::get_blocks(&mut self.rpc_client, last_checked_height, None)
-                    .await?;
+                DaemonRPC::get_blocks(&mut self.rpc_client, last_checked_height, None).await?;
 
             // TODO: Move this to a #[serde(with)] method
             let blocks: Vec<common::Block> = response

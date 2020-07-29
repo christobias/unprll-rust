@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use common::{Block, GetHash, TXExtra, TXIn, TXNonce, TXOutTarget, Transaction};
 use crypto::{Hash256, Hash8, KeyImage, PublicKey, SecretKey};
 use ringct::Commitment;
-use transaction_util::{
-    payment_id, tx_scanning,
-    Derivation,
-};
+use transaction_util::{payment_id, tx_scanning, Derivation};
 
 use crate::{account::UnspentOutput, SubAddressIndex, Wallet};
 
@@ -53,10 +50,7 @@ impl Wallet {
         // Scan the coinbase transaction first
         // Assumes the coinbase transaction only contains one output
         let miner_tx_hash = block.miner_tx.get_hash();
-        let mut tx_scans = vec![(
-            &miner_tx_hash,
-            self.scan_transaction(&block.miner_tx)
-        )];
+        let mut tx_scans = vec![(&miner_tx_hash, self.scan_transaction(&block.miner_tx))];
 
         // Then scan each transaction in the block
         for txid in &block.tx_hashes {
@@ -119,8 +113,9 @@ impl Wallet {
                                 encrypted_payment_id,
                                 Derivation::from(
                                     &self.account_keys.view_keypair.secret_key,
-                                    &tx_pub_keys[0]
-                                ).unwrap()
+                                    &tx_pub_keys[0],
+                                )
+                                .unwrap(),
                             ));
                         }
                     }
@@ -169,7 +164,8 @@ impl Wallet {
                                 rct_signature,
                                 output_index,
                                 &ephemeral_keypair.secret_key,
-                            ).unwrap()
+                            )
+                            .unwrap()
                         } else {
                             Commitment {
                                 value: SecretKey::from(output.amount),

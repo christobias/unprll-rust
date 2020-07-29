@@ -3,14 +3,11 @@ use std::collections::HashMap;
 use byteorder::{ByteOrder, LittleEndian};
 use serde::{Deserialize, Serialize};
 
-use crypto::{
-    ecc::CompressedPoint,
-    Hash256, Hash8, KeyImage,
-};
+use crypto::{ecc::CompressedPoint, Hash256, Hash8, KeyImage};
 use ringct::Commitment;
-use transaction_util::subaddress::{SubAddressIndex};
+use transaction_util::subaddress::SubAddressIndex;
 
-use crate::{Wallet};
+use crate::Wallet;
 
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UnspentOutput {
@@ -24,7 +21,7 @@ pub struct UnspentOutput {
 #[derive(Serialize, Deserialize)]
 pub struct Account {
     subaddress_indices: Vec<u32>,
-    unspent_outputs: HashMap<CompressedPoint, UnspentOutput>
+    unspent_outputs: HashMap<CompressedPoint, UnspentOutput>,
 }
 
 impl Account {
@@ -52,7 +49,7 @@ impl Account {
 impl Default for Account {
     fn default() -> Self {
         Account {
-            subaddress_indices: vec!{0},
+            subaddress_indices: vec![0],
             unspent_outputs: HashMap::new(),
         }
     }
@@ -61,10 +58,7 @@ impl Default for Account {
 impl Wallet {
     /// Add an account to the current wallet
     pub fn add_account(&mut self, major_index: u32) {
-        self.accounts.insert(
-            major_index,
-            Account::default(),
-        );
+        self.accounts.insert(major_index, Account::default());
     }
     /// Get the account at the given major index from the current wallet
     pub fn get_account(&self, major_index: u32) -> Option<&Account> {
