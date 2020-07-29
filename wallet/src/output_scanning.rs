@@ -1,12 +1,22 @@
 use std::collections::HashMap;
 
-use log::info;
+use common::{Block, GetHash, TXExtra, TXIn, TXNonce, TXOutTarget, Transaction};
+use crypto::{Hash256, Hash8, KeyImage, PublicKey, SecretKey};
+use ringct::Commitment;
+use transaction_util::{
+    payment_id, tx_scanning,
+    Derivation,
+};
 
-use common::{Block, GetHash, TXExtra, TXOutTarget, Transaction};
-use crypto::{Hash256, SecretKey};
-use transaction_util::tx_scanning;
+use crate::{account::UnspentOutput, SubAddressIndex, Wallet};
 
-use crate::{SubAddressIndex, Wallet};
+struct TXScanInfo {
+    commitment: Commitment,
+    key_image: KeyImage,
+    output_public_key: PublicKey,
+    subaddress_index: SubAddressIndex,
+    payment_id: Option<Hash8>,
+}
 
 impl Wallet {
     /// Get the last checked block of the current wallet
@@ -30,16 +40,54 @@ impl Wallet {
             self.checked_blocks
                 .retain(|&height, _| height <= split_height);
 
-            // TODO: Remove output keys from blocks above split
+            // TODO: Remove unspent outputs from blocks above split
         }
 
+        // Get the block height
+        let block_height = if let TXIn::Gen(height) = block.miner_tx.prefix.inputs[0] {
+            height
+        } else {
+            unreachable!();
+        };
+
         // Scan the coinbase transaction first
-        self.scan_transaction(&block.miner_tx);
+        // Assumes the coinbase transaction only contains one output
+        let miner_tx_hash = block.miner_tx.get_hash();
+        let mut tx_scans = vec![(
+            &miner_tx_hash,
+            self.scan_transaction(&block.miner_tx)
+        )];
 
         // Then scan each transaction in the block
         for txid in &block.tx_hashes {
             // TODO: Handle missing transactions
-            self.scan_transaction(transactions.get(txid).unwrap());
+            tx_scans.push((txid, self.scan_transaction(transactions.get(txid).unwrap())));
+        }
+
+        for (txid, tx_scans_vec) in tx_scans {
+            for tx_scan_info in tx_scans_vec {
+                // We've got money!
+                log::info!(
+                    "Output found in txid <{}>. Output public key <{}>",
+                    txid,
+                    hex::encode(tx_scan_info.output_public_key.compress().as_bytes())
+                );
+
+                // Add the output's amount to the corresponding account
+                self.accounts
+                    .get_mut(&tx_scan_info.subaddress_index.0)
+                    .unwrap()
+                    .add_unspent_output(
+                        tx_scan_info.key_image,
+                        UnspentOutput {
+                            commitment: tx_scan_info.commitment,
+                            block_height,
+                            minor_index: tx_scan_info.subaddress_index.1,
+                            payment_id: tx_scan_info.payment_id.clone(),
+                            txid: txid.clone(),
+                        },
+                    );
+            }
         }
 
         // Add this block to the list of scanned blocks
@@ -50,9 +98,11 @@ impl Wallet {
         }
     }
 
-    fn scan_transaction(&mut self, transaction: &Transaction) -> Option<Vec<SecretKey>> {
-        // Grab the transaction public keys
+    fn scan_transaction(&self, transaction: &Transaction) -> Vec<TXScanInfo> {
+        // Grab the transaction public keys and the payment ID
         let mut tx_pub_keys = Vec::new();
+        let mut payment_id = None;
+
         for extra in &transaction.prefix.extra {
             match extra {
                 TXExtra::TxPublicKey(key) => {
@@ -62,7 +112,18 @@ impl Wallet {
                     tx_pub_keys.extend_from_slice(keys);
                 }
                 TXExtra::TxNonce(nonce) => {
-                    // TODO: Handle payment IDs
+                    match nonce {
+                        TXNonce::EncryptedPaymentId(encrypted_payment_id) => {
+                            // TODO: Think about multi-payment ID scenarios
+                            payment_id = Some(payment_id::decrypt(
+                                encrypted_payment_id,
+                                Derivation::from(
+                                    &self.account_keys.view_keypair.secret_key,
+                                    &tx_pub_keys[0]
+                                ).unwrap()
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -74,13 +135,14 @@ impl Wallet {
             .iter()
             .flat_map(|(major, account)| {
                 account
-                    .addresses()
+                    .subaddress_indices()
                     .iter()
-                    .map(move |(minor, _)| SubAddressIndex(*major, *minor))
+                    .map(move |minor| SubAddressIndex(*major, *minor))
             })
             .collect::<Vec<_>>();
 
-        let output_secret_keys = transaction
+        // Iterator-based to allow easier parallelization later
+        transaction
             .prefix
             .outputs
             .iter()
@@ -92,38 +154,41 @@ impl Wallet {
                 } = output.target;
 
                 for sub_index in &subaddresses {
-                    if let Some(output_secret_key) = tx_scanning::get_output_secret_key(
+                    let key_image = tx_scanning::get_key_image(
                         &self.account_keys,
                         sub_index,
+                        &output_public_key,
                         output_index as u64,
-                        output_public_key,
                         &tx_pub_keys,
-                    ) {
-                        // We've got money!
-                        info!(
-                            "Output found in txid <{}>. Output public key <{}>",
-                            transaction.get_hash(),
-                            hex::encode(output_public_key.compress().as_bytes())
-                        );
+                    );
 
-                        // Add the output's amount to the corresponding account
-                        self.accounts
-                            .get_mut(&sub_index.0)
-                            .unwrap()
-                            .increment_balance(output.amount);
+                    if let Some((key_image, ephemeral_keypair)) = key_image {
+                        let commitment = if let Some(rct_signature) = &transaction.rct_signature {
+                            // TODO: Handle errors
+                            ringct::decode(
+                                rct_signature,
+                                output_index,
+                                &ephemeral_keypair.secret_key,
+                            ).unwrap()
+                        } else {
+                            Commitment {
+                                value: SecretKey::from(output.amount),
+                                mask: SecretKey::one(),
+                            }
+                        };
 
-                        return Some(output_secret_key);
+                        return Some(TXScanInfo {
+                            commitment,
+                            key_image,
+                            output_public_key,
+                            subaddress_index: sub_index.clone(),
+                            payment_id: payment_id.clone(),
+                        });
                     }
                 }
 
                 None
             })
-            .collect::<Vec<_>>();
-
-        if output_secret_keys.is_empty() {
-            None
-        } else {
-            Some(output_secret_keys)
-        }
+            .collect()
     }
 }

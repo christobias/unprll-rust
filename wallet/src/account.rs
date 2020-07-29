@@ -1,47 +1,60 @@
 use std::collections::HashMap;
 
+use byteorder::{ByteOrder, LittleEndian};
 use serde::{Deserialize, Serialize};
 
-use transaction_util::subaddress::{self, SubAddressIndex};
+use crypto::{
+    ecc::CompressedPoint,
+    Hash256, Hash8, KeyImage,
+};
+use ringct::Commitment;
+use transaction_util::subaddress::{SubAddressIndex};
 
-use crate::{Address, Wallet};
+use crate::{Wallet};
+
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UnspentOutput {
+    pub commitment: Commitment,
+    pub block_height: u64,
+    pub minor_index: u32,
+    pub payment_id: Option<Hash8>,
+    pub txid: Hash256,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Account {
-    addresses: HashMap<u32, Address>,
-    balance: u64,
+    subaddress_indices: Vec<u32>,
+    unspent_outputs: HashMap<CompressedPoint, UnspentOutput>
 }
 
 impl Account {
-    pub fn new(address: Address) -> Self {
-        let mut acc = Account {
-            addresses: HashMap::new(),
-            balance: 0,
-        };
+    pub fn subaddress_indices(&self) -> &Vec<u32> {
+        &self.subaddress_indices
+    }
+    pub fn get_balance(&self) -> u64 {
+        self.unspent_outputs.iter().fold(0u64, |acc, (_, curr)| {
+            acc + LittleEndian::read_u64(curr.commitment.value.as_bytes())
+        })
+    }
+    pub fn add_unspent_output(&mut self, key_image: KeyImage, output: UnspentOutput) {
+        if self.unspent_outputs.contains_key(&key_image.compress()) {
+            // TODO: Is panicking reasonable? This situation must never occur,
+            //       otherwise we'll have multiple outputs with the same key image
+            unreachable!()
+        }
+        self.unspent_outputs.insert(key_image.compress(), output);
+    }
+    pub fn mark_output_as_spent(&mut self, key_image: KeyImage) {
+        self.unspent_outputs.remove(&key_image.compress());
+    }
+}
 
-        acc.addresses.insert(0, address);
-
-        acc
-    }
-    pub fn addresses(&self) -> &HashMap<u32, Address> {
-        &self.addresses
-    }
-    pub fn balance(&self) -> u64 {
-        self.balance
-    }
-    pub fn increment_balance(&mut self, inc: u64) {
-        // TODO: Panicking is probably the more sane alternative
-        self.balance = self
-            .balance
-            .checked_add(inc)
-            .expect("Account balance overflow");
-    }
-    pub fn decrement_balance(&mut self, inc: u64) {
-        // TODO: Panicking is probably the more sane alternative
-        self.balance = self
-            .balance
-            .checked_sub(inc)
-            .expect("Account balance underflow");
+impl Default for Account {
+    fn default() -> Self {
+        Account {
+            subaddress_indices: vec!{0},
+            unspent_outputs: HashMap::new(),
+        }
     }
 }
 
@@ -50,10 +63,7 @@ impl Wallet {
     pub fn add_account(&mut self, major_index: u32) {
         self.accounts.insert(
             major_index,
-            Account::new(subaddress::get_address_for_index(
-                &self.account_keys,
-                &SubAddressIndex(major_index, 0),
-            )),
+            Account::default(),
         );
     }
     /// Get the account at the given major index from the current wallet
@@ -63,11 +73,9 @@ impl Wallet {
 
     /// Add an address to the given account
     pub fn add_address(&mut self, index: SubAddressIndex) -> Option<()> {
-        let address = subaddress::get_address_for_index(&self.account_keys, &index);
-
         let account = self.accounts.get_mut(&index.0)?;
 
-        account.addresses.insert(index.1, address);
+        account.subaddress_indices.push(index.1);
         Some(())
     }
 }

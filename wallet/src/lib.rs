@@ -38,14 +38,8 @@ impl From<AccountKeys> for Wallet {
             checked_blocks: HashMap::new(),
         };
 
-        // Insert standard address in the accounts map
-        w.accounts.insert(
-            0,
-            Account::new(Address::standard(
-                w.account_keys.spend_keypair.public_key,
-                w.account_keys.view_keypair.public_key,
-            )),
-        );
+        // Add the first account (standard address)
+        w.add_account(0);
 
         // Mark genesis as checked
         // FIXME: Probably inefficient

@@ -36,7 +36,7 @@ lazy_static! {
 /// Pedersen Commitments
 ///
 /// `C = aG + bH`
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct Commitment {
     /// The value being committed to `b`
     pub value: Scalar,
