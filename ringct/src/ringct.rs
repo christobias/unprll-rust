@@ -76,8 +76,6 @@ pub struct ECDHTuple {
 /// Defines the type of RingCT signature
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RingCTType {
-    /// Placeholder for an empty RingCT signature
-    Null = 0,
     /// Bulletproof enabled RingCT
     ///
     /// Allows for smaller signatures
@@ -162,42 +160,41 @@ fn get_pre_mlsag_hash(signature: &RingCTSignature) -> Vec<u8> {
     let mut hasher = CNFastHash::new();
 
     hasher.input(&[signature.base.signature_type as u8]);
-    if signature.base.signature_type != RingCTType::Null {
-        // Base
-        hasher.input(varint::serialize(signature.base.fee));
-        for ecdh in &signature.base.ecdh_exchange {
-            hasher.input(ecdh.mask.as_bytes());
-            hasher.input(&ecdh.amount);
-        }
-        for pair in &signature.base.output_commitments {
-            hasher.input(pair.commitment.compress().as_bytes());
-        }
 
-        let base_hash = hasher.result_reset();
-
-        let mut bulletproof_hash = CNFastHash::new();
-        for proof in &signature.bulletproofs {
-            bulletproof_hash.input(proof.A.compress().to_bytes());
-            bulletproof_hash.input(proof.S.compress().to_bytes());
-            bulletproof_hash.input(proof.T_1.compress().to_bytes());
-            bulletproof_hash.input(proof.T_2.compress().to_bytes());
-            bulletproof_hash.input(proof.tau_x.to_bytes());
-            bulletproof_hash.input(proof.mu.to_bytes());
-            for l in &proof.L {
-                bulletproof_hash.input(l.compress().to_bytes());
-            }
-            for r in &proof.R {
-                bulletproof_hash.input(r.compress().to_bytes());
-            }
-            bulletproof_hash.input(proof.a.to_bytes());
-            bulletproof_hash.input(proof.b.to_bytes());
-            bulletproof_hash.input(proof.t.to_bytes());
-        }
-
-        hasher.input(signature.base.message_hash.data());
-        hasher.input(base_hash);
-        hasher.input(bulletproof_hash.result());
+    // Base
+    hasher.input(varint::serialize(signature.base.fee));
+    for ecdh in &signature.base.ecdh_exchange {
+        hasher.input(ecdh.mask.as_bytes());
+        hasher.input(&ecdh.amount);
     }
+    for pair in &signature.base.output_commitments {
+        hasher.input(pair.commitment.compress().as_bytes());
+    }
+
+    let base_hash = hasher.result_reset();
+
+    let mut bulletproof_hash = CNFastHash::new();
+    for proof in &signature.bulletproofs {
+        bulletproof_hash.input(proof.A.compress().to_bytes());
+        bulletproof_hash.input(proof.S.compress().to_bytes());
+        bulletproof_hash.input(proof.T_1.compress().to_bytes());
+        bulletproof_hash.input(proof.T_2.compress().to_bytes());
+        bulletproof_hash.input(proof.tau_x.to_bytes());
+        bulletproof_hash.input(proof.mu.to_bytes());
+        for l in &proof.L {
+            bulletproof_hash.input(l.compress().to_bytes());
+        }
+        for r in &proof.R {
+            bulletproof_hash.input(r.compress().to_bytes());
+        }
+        bulletproof_hash.input(proof.a.to_bytes());
+        bulletproof_hash.input(proof.b.to_bytes());
+        bulletproof_hash.input(proof.t.to_bytes());
+    }
+
+    hasher.input(signature.base.message_hash.data());
+    hasher.input(base_hash);
+    hasher.input(bulletproof_hash.result());
 
     hasher.result().to_vec()
 }
@@ -362,12 +359,6 @@ pub fn sign(
 pub fn verify_multiple(signatures: &[impl Borrow<RingCTSignature>]) -> Result<()> {
     for signature in signatures {
         let signature = signature.borrow();
-
-        // Currently we've only got Bulletproof outputs
-        ensure!(
-            signature.base.signature_type != RingCTType::Null,
-            Error::InvalidSignatureType
-        );
 
         ensure!(
             signature.base.output_commitments.len() == signature.bulletproofs[0].V.len(),
