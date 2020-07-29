@@ -13,8 +13,8 @@ use wallet::Wallet;
 use crate::config::Config;
 
 pub struct WalletStore {
-    daemon_address: String,
     // refresh_interval: Interval,
+    rpc_client: RawClient<HttpTransportClient>,
     wallet_dir: std::path::PathBuf,
     wallets: HashMap<String, Arc<RwLock<Wallet>>>,
 }
@@ -22,8 +22,11 @@ pub struct WalletStore {
 impl WalletStore {
     pub fn new(config: Config) -> Self {
         let ws = WalletStore {
-            daemon_address: config.daemon_address,
             // refresh_interval: Interval::new_interval(Duration::from_secs(10)),
+            rpc_client: RawClient::new(HttpTransportClient::new(&format!(
+                "http://{}",
+                config.daemon_address
+            ))),
             wallet_dir: config.wallet_dir,
             wallets: HashMap::new(),
         };
@@ -32,16 +35,6 @@ impl WalletStore {
 
         ws
     }
-
-    // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
-    //             constant load. Remove this once that's changed
-    fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
-        RawClient::new(HttpTransportClient::new(&format!(
-            "http://{}",
-            self.daemon_address
-        )))
-    }
-
     pub fn add_wallet(&mut self, wallet_name: String, wallet: Wallet) -> Result<(), Error> {
         ensure!(
             !self.wallets.contains_key(&wallet_name),
@@ -92,7 +85,7 @@ impl WalletStore {
             let wallet = wallet.clone();
 
             let response =
-                DaemonRPC::get_blocks(&mut self.get_rpc_client(), last_checked_height, None)
+                DaemonRPC::get_blocks(&mut self.rpc_client, last_checked_height, None)
                     .await?;
 
             // TODO: Move this to a #[serde(with)] method

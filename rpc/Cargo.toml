@@ -13,7 +13,7 @@ cryptonote_core = { path = "../core" }
 futures = "0.3"
 hex = "0.3"
 hyper = "0.13"
-jsonrpsee = "0.1"
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "master" }
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.2"

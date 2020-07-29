@@ -51,8 +51,8 @@ where
                         })
                     };
                     match response.await {
-                        Ok(response) => respond.ok(response).await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
+                        Ok(response) => respond.ok(response),
+                        Err(error) => respond.err(Error::invalid_params(error.to_string())),
                     };
                 }
 
@@ -69,8 +69,8 @@ where
                         Ok::<_, anyhow::Error>(())
                     };
                     match response.await {
-                        Ok(()) => respond.ok("").await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
+                        Ok(()) => respond.ok(""),
+                        Err(error) => respond.err(Error::invalid_params(error.to_string())),
                     };
                 }
 
@@ -116,8 +116,8 @@ where
                         })
                     };
                     match response.await {
-                        Ok(response) => respond.ok(response).await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
+                        Ok(response) => respond.ok(response),
+                        Err(error) => respond.err(Error::invalid_params(error.to_string())),
                     };
                 }
             }

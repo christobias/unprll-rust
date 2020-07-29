@@ -43,17 +43,13 @@ where
 
                     let w = Wallet::from_spend_secret_key(spend_keypair.secret_key);
 
-                    match self
-                        .wallet_store
-                        .write()
-                        .unwrap()
-                        .add_wallet(wallet_name.clone(), w)
-                    {
-                        Ok(()) => respond.ok("").await,
-                        Err(error) => {
-                            respond.err(Error::invalid_params(error.to_string())).await;
-                        }
-                    };
+                    respond.respond(
+                        self.wallet_store
+                            .write().unwrap()
+                            .add_wallet(wallet_name.clone(), w)
+                            .map(|_| "")
+                            .map_err(|e| Error::invalid_params(e.to_string())),
+                    );
                 }
 
                 // load_wallet
@@ -62,39 +58,35 @@ where
                     wallet_name,
                     ..
                 } => {
-                    match self
-                        .wallet_store
-                        .write()
-                        .unwrap()
-                        .load_wallet(wallet_name.clone())
-                    {
-                        Ok(()) => respond.ok("").await,
-                        Err(error) => {
-                            respond.err(Error::invalid_params(error.to_string())).await;
-                        }
-                    };
+                    respond.respond(
+                        self.wallet_store
+                            .write().unwrap()
+                            .load_wallet(wallet_name.clone())
+                            .map(|_| "")
+                            .map_err(|e| Error::invalid_params(e.to_string()))
+                    );
                 }
 
                 // refresh_wallets
                 WalletRPC::RefreshWallets { respond } => {
-                    let response =
-                        async { self.wallet_store.write().unwrap().refresh_wallets().await };
-
-                    match response.await {
-                        Ok(()) => respond.ok("").await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
-                    };
+                    respond.respond(
+                        self.wallet_store
+                            .write().unwrap()
+                            .refresh_wallets().await
+                            .map(|_| "")
+                            .map_err(|e| Error::invalid_params(e.to_string()))
+                    );
                 }
 
                 // save_wallets
                 WalletRPC::SaveWallets { respond } => {
-                    let response =
-                        async { self.wallet_store.write().unwrap().save_wallets().await };
-
-                    match response.await {
-                        Ok(()) => respond.ok("").await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
-                    };
+                    respond.respond(
+                        self.wallet_store
+                            .write().unwrap()
+                            .save_wallets().await
+                            .map(|_| "")
+                            .map_err(|e| Error::invalid_params(e.to_string()))
+                    );
                 }
 
                 // get_addresses
@@ -120,8 +112,9 @@ where
                         let wallet = wallet.read().unwrap();
 
                         for index in minor_indices {
-                            let address =
-                                wallet.get_address_for_index(&SubAddressIndex(major_index, index));
+                            let address = wallet
+                                .get_address_for_index(&SubAddressIndex(major_index, index))
+                                .with_context(|| "Wallet not found")?;
 
                             response.addresses.insert(
                                 index,
@@ -131,10 +124,10 @@ where
                         Ok::<_, anyhow::Error>(response)
                     };
 
-                    match response.await {
-                        Ok(response) => respond.ok(response).await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
-                    };
+                    respond.respond(
+                        response.await
+                            .map_err(|e| Error::invalid_params(e.to_string()))
+                    );
                 }
 
                 // get_balances
@@ -159,16 +152,16 @@ where
                                 wallet
                                     .get_account(major_index)
                                     .with_context(|| "Wallet not found")?
-                                    .balance(),
+                                    .get_balance(),
                             );
                         }
                         Ok::<_, anyhow::Error>(response)
                     };
 
-                    match response.await {
-                        Ok(response) => respond.ok(response).await,
-                        Err(error) => respond.err(Error::invalid_params(error.to_string())).await,
-                    };
+                    respond.respond(
+                        response.await
+                            .map_err(|e| Error::invalid_params(e.to_string()))
+                    );
                 }
             }
         }

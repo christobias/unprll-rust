@@ -17,32 +17,26 @@ use crate::miner::Miner;
 
 pub struct MinerStateMachine {
     check_interval: Duration,
-    daemon_address: String,
     last_checked: Instant,
     last_prev_id: Option<String>,
     miner: Miner,
     miner_address: Address,
+    rpc_client: RawClient<HttpTransportClient>,
 }
 
 impl MinerStateMachine {
     pub fn new(config: Config) -> Result<Self, anyhow::Error> {
         Ok(MinerStateMachine {
             check_interval: Duration::from_secs(config.check_interval),
-            daemon_address: config.daemon_address,
             last_checked: Instant::now(),
             last_prev_id: None,
             miner: Miner::new(),
             miner_address: Address::from_address_string::<Unprll>(config.miner_address.as_str())?,
+            rpc_client: RawClient::new(HttpTransportClient::new(&format!(
+                "http://{}",
+                config.daemon_address
+            )))
         })
-    }
-
-    // TODO FIXME: jsonrpsee usese a background thread to maintain its requests which puts the CPU under
-    //             constant load. Remove this once that's changed
-    fn get_rpc_client(&self) -> RawClient<HttpTransportClient> {
-        RawClient::new(HttpTransportClient::new(&format!(
-            "http://{}",
-            self.daemon_address
-        )))
     }
 
     fn construct_block_template(&self, current_height: u64, prev_id: Hash256) -> Block {
@@ -103,7 +97,7 @@ impl MinerStateMachine {
         async move {
             loop {
                 // Check if we need to check the daemon for a new chain tail
-                let stats = DaemonRPC::get_stats(&mut self.get_rpc_client()).await?;
+                let stats = DaemonRPC::get_stats(&mut self.rpc_client).await?;
                 self.last_checked = Instant::now();
 
                 // Check if the tail changed
@@ -135,7 +129,7 @@ impl MinerStateMachine {
                     if self.miner.run_pow_step() {
                         log::info!("Block found!");
                         DaemonRPC::submit_block(
-                            &mut self.get_rpc_client(),
+                            &mut self.rpc_client,
                             hex::encode(
                                 bincode::serialize(&self.miner.take_block().unwrap()).unwrap(),
                             ),
