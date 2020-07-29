@@ -3,7 +3,7 @@
 use rand::{seq::SliceRandom, RngCore};
 
 use common::{GetHash, TXExtra, TXIn, TXNonce, TXOut, TXOutTarget, Transaction, TransactionPrefix};
-use crypto::{ecc::Scalar, CNFastHash, Digest, Hash8, Hash8Data, KeyImage, KeyPair, PublicKey};
+use crypto::{ecc::Scalar, Hash8, Hash8Data, KeyPair, PublicKey};
 use ensure_macro::ensure;
 use ringct::{Error as RingCTError, RingCTInput, RingCTOutput};
 
@@ -49,44 +49,6 @@ pub enum Error {
 }
 
 type Result<T> = std::result::Result<T, Error>;
-
-/// Generates a key image for the given input to the transaction
-///
-/// The key image is a tag used to prevent double spends of a transaction input
-fn generate_key_image(
-    account_keys: &AccountKeys,
-    source: &TXSource,
-) -> Option<(KeyImage, KeyPair)> {
-    let (_, real_output) = source.outputs[source.real_output_index as usize];
-
-    // Get the output secret key. This will return None if the source output
-    // doesn't belong to the account
-    // x = H_s(arG || idx) + b
-    let output_secret_key = tx_scanning::get_output_secret_key(
-        account_keys,
-        &source.subaddress_index,
-        source.real_output_tx_index,
-        real_output.destination,
-        &source.real_output_tx_public_keys,
-    )?;
-
-    // Generate the ephemeral keypair for this output (x, X = xG)
-    let ephemeral_keypair = KeyPair::from(output_secret_key);
-
-    // Generate the key image
-    // KI = x * H_p(X)
-    let key_image = ephemeral_keypair.secret_key
-        * crypto::ecc::hash_to_point(CNFastHash::digest(
-            ephemeral_keypair.public_key.compress().as_bytes(),
-        ));
-
-    // Check if the ephemeral keypair matches the output key
-    if ephemeral_keypair.public_key != real_output.destination {
-        None
-    } else {
-        Some((key_image, ephemeral_keypair))
-    }
-}
 
 /// Finds the public key for the main destination of a transaction
 ///
@@ -143,8 +105,13 @@ pub fn construct_tx(
 
         // Generate key image
         // x * H_p(P)
-        let (key_image, ephemeral_keypair) =
-            generate_key_image(&sender_keys, source).ok_or_else(|| Error::KeyImageGeneration)?;
+        let (key_image, ephemeral_keypair) = tx_scanning::get_key_image(
+            &sender_keys,
+            &source.subaddress_index,
+            &source.outputs[source.real_output_index as usize].1.destination,
+            source.real_output_tx_index,
+            &source.real_output_tx_public_keys,
+        ).ok_or_else(|| Error::KeyImageGeneration)?;
 
         // Convert absolute offsets to relative
         let key_offsets = source.outputs.iter().fold(Vec::new(), |mut acc, (pos, _)| {
@@ -478,11 +445,11 @@ pub mod tests {
         };
 
         // Make sure this output actually does go to the sender
-        assert!(tx_scanning::get_output_secret_key(
+        assert!(tx_scanning::get_key_image(
             &sender_keys,
             &SubAddressIndex(0, 0),
-            real_output_tx_index,
-            source.outputs[real_output_index as usize].1.destination,
+            &source.outputs[real_output_index as usize].1.destination,
+            source.real_output_tx_index,
             &source.real_output_tx_public_keys,
         )
         .is_some());
@@ -542,11 +509,11 @@ pub mod tests {
 
             let TXOutTarget::ToKey { key: output_key } = output.target;
 
-            assert!(tx_scanning::get_output_secret_key(
+            assert!(tx_scanning::get_key_image(
                 &sender_keys,
                 &SubAddressIndex(1, 0),
+                &output_key,
                 output_index as u64,
-                output_key,
                 &tx_public_keys,
             )
             .is_some());
