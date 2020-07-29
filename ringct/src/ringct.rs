@@ -9,7 +9,7 @@ use std::iter::Sum;
 use serde::{Deserialize, Serialize};
 
 use crypto::{
-    ecc::{self, Point},
+    ecc::{self, Point, ScalarExt},
     CNFastHash, Digest, Hash256, PublicKey, SecretKey,
 };
 use ensure_macro::ensure;
@@ -286,6 +286,7 @@ pub fn sign(
                         .iter()
                         .zip(amount_mask.as_bytes())
                         .map(|(a, m)| a ^ m)
+                        .take(8)
                         .collect(),
                     mask: mask + shared_secret_1,
                 });
@@ -350,6 +351,59 @@ pub fn sign(
     signature.mlsag = mlsag_sigs;
 
     Ok(signature)
+}
+
+/// Decodes the hidden amount from a RingCT signature given the shared secret key used to encrypt the amount
+pub fn decode(signature: &RingCTSignature, index: usize, amount_secret_key: &SecretKey) -> Result<Commitment> {
+    ensure!(
+        signature.base.ecdh_exchange.len() == signature.base.output_commitments.len(),
+        Error::InvalidParameters
+    );
+    ensure!(
+        index < signature.base.ecdh_exchange.len(),
+        Error::InvalidParameters
+    );
+
+    let ecdh_tuple = &signature.base.ecdh_exchange[index];
+    let output_commitment = signature.base.output_commitments[index];
+
+    let shared_secret_1 = ecc::hash_to_scalar(CNFastHash::digest(amount_secret_key.as_bytes()));
+
+    let value = match signature.base.signature_type {
+        RingCTType::Bulletproof => {
+            let shared_secret_2 = ecc::hash_to_scalar(CNFastHash::digest(shared_secret_1.as_bytes()));
+
+            SecretKey::from_slice(&ecdh_tuple.amount) - shared_secret_2
+        },
+        RingCTType::Bulletproof2 => {
+            let amount_mask = ecdh_utils::ecdh_hash(&amount_secret_key);
+            let amount_bytes = ecdh_tuple.amount
+                .iter()
+                .zip(amount_mask.as_bytes())
+                .map(|(a, m)| a ^ m)
+                .chain(std::iter::repeat(0u8).take(24))
+                .collect::<Vec<_>>();
+
+            SecretKey::from_slice(&amount_bytes)
+        }
+    };
+
+    let commitment = Commitment {
+        value,
+        mask: ecdh_tuple.mask - shared_secret_1
+    };
+
+    ensure!(
+        commitment.value.is_canonical() && commitment.mask.is_canonical(),
+        Error::InconsistentSignature
+    );
+
+    ensure!(
+        commitment.as_public() == output_commitment.commitment,
+        Error::InconsistentSignature
+    );
+
+    Ok(commitment)
 }
 
 /// Verify the given RingCT signatures
@@ -498,9 +552,21 @@ mod test {
             });
         }
 
+        // Make sure we can produce a signature without errors
         let signature = ringct::sign(message_hash, &inputs, &destinations, 3).unwrap();
 
-        ringct::verify_multiple(&[signature]).unwrap();
+        // Ensure that the signature verifies correctly
+        ringct::verify_multiple(&[&signature]).unwrap();
+
+        for (index, dest) in destinations.iter().enumerate() {
+            // Make sure the amounts decoded are correct
+            let commitment = ringct::decode(&signature, index, &dest.amount_secret_key).unwrap();
+
+            assert_eq!(
+                commitment.value,
+                SecretKey::from(dest.amount)
+            );
+        }
     }
 
     #[test]

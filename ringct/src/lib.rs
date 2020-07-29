@@ -59,6 +59,13 @@ impl Commitment {
     pub fn into_public(self) -> Point {
         Point::multiscalar_mul(&[self.mask, self.value], &[BASEPOINT, *AMOUNT_BASEPOINT])
     }
+
+    /// Returns the result of the commitment
+    ///
+    /// Computes `C` where `C = aG + bH`
+    pub fn as_public(&self) -> Point {
+        Point::multiscalar_mul(&[self.mask, self.value], &[BASEPOINT, *AMOUNT_BASEPOINT])
+    }
 }
 
 /// Non-zero 2D array of data
@@ -145,6 +152,6 @@ pub mod mlsag;
 mod ringct;
 
 pub use crate::ringct::{
-    sign, verify_multiple, DestinationCommitmentPair, Error, RingCTBase, RingCTInput, RingCTOutput,
+    decode, sign, verify_multiple, DestinationCommitmentPair, Error, RingCTBase, RingCTInput, RingCTOutput,
     RingCTSignature, RingCTType,
 };
